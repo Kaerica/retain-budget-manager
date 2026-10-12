@@ -13,8 +13,8 @@ const STORAGE_KEY = "retain-expenses";
 export default function Expenses() {
   const [expenses, setExpenses] = useState<Expense[]>(() => {
     try {
-      const savedExpenses = localStorage.getItem(STORAGE_KEY);
-      return savedExpenses ? (JSON.parse(savedExpenses) as Expense[]) : [];
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? (JSON.parse(saved) as Expense[]) : [];
     } catch {
       return [];
     }
@@ -26,14 +26,23 @@ export default function Expenses() {
   const [date, setDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
+
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  // Save expenses whenever the list changes.
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
   }, [expenses]);
 
-  // Add a new expense.
+  function resetForm() {
+    setTitle("");
+    setCategory("Food");
+    setAmount("");
+    setDate(new Date().toISOString().slice(0, 10));
+    setEditingId(null);
+    setError("");
+  }
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -55,30 +64,54 @@ export default function Expenses() {
       return;
     }
 
-    const newExpense: Expense = {
-      id: Date.now(),
-      title: title.trim(),
-      category,
-      amount: numericAmount,
-      date,
-    };
+    if (editingId !== null) {
+      setExpenses((current) =>
+        current.map((expense) =>
+          expense.id === editingId
+            ? {
+                ...expense,
+                title: title.trim(),
+                category,
+                amount: numericAmount,
+                date,
+              }
+            : expense
+        )
+      );
+    } else {
+      const newExpense: Expense = {
+        id: Date.now(),
+        title: title.trim(),
+        category,
+        amount: numericAmount,
+        date,
+      };
 
-    setExpenses((currentExpenses) => [
-      newExpense,
-      ...currentExpenses,
-    ]);
+      setExpenses((current) => [newExpense, ...current]);
+    }
 
-    setTitle("");
-    setCategory("Food");
-    setAmount("");
-    setDate(new Date().toISOString().slice(0, 10));
+    resetForm();
   }
 
-  // Delete an expense.
+  function handleEdit(expense: Expense) {
+    setEditingId(expense.id);
+    setTitle(expense.title);
+    setCategory(expense.category);
+    setAmount(String(expense.amount));
+    setDate(expense.date);
+    setError("");
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function handleDelete(id: number) {
-    setExpenses((currentExpenses) =>
-      currentExpenses.filter((expense) => expense.id !== id)
+    setExpenses((current) =>
+      current.filter((expense) => expense.id !== id)
     );
+
+    if (editingId === id) {
+      resetForm();
+    }
   }
 
   const totalExpenses = expenses.reduce(
@@ -92,11 +125,10 @@ export default function Expenses() {
         <div>
           <p className="eyebrow">PERSONAL FINANCE</p>
           <h1>Expenses</h1>
-          <p>Record and manage your daily spending.</p>
+          <p>Record, update, and manage your daily spending.</p>
         </div>
       </div>
 
-      {/* Expense summary */}
       <div className="summary-grid">
         <article className="summary-card">
           <div className="summary-card-top">
@@ -117,10 +149,13 @@ export default function Expenses() {
         </article>
       </div>
 
-      {/* Add expense form */}
       <article className="content-panel">
-        <h2>Add a New Expense</h2>
-        <p>Enter the details of your purchase or payment.</p>
+        <h2>{editingId !== null ? "Edit Expense" : "Add a New Expense"}</h2>
+        <p>
+          {editingId !== null
+            ? "Update the details below and save your changes."
+            : "Enter the details of your purchase or payment."}
+        </p>
 
         {error && (
           <p role="alert" className="form-error">
@@ -183,11 +218,20 @@ export default function Expenses() {
             />
           </label>
 
-          <button type="submit">Add Expense</button>
+          <div className="expense-form-actions">
+            <button type="submit">
+              {editingId !== null ? "Save Changes" : "Add Expense"}
+            </button>
+
+            {editingId !== null && (
+              <button type="button" onClick={resetForm}>
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
       </article>
 
-      {/* Recent expenses */}
       <article className="content-panel" style={{ marginTop: "24px" }}>
         <h2>Recent Expenses</h2>
         <p>Your recorded expenses appear here.</p>
@@ -205,17 +249,25 @@ export default function Expenses() {
                   </p>
                 </div>
 
-                <strong>
-                  RWF {expense.amount.toLocaleString()}
-                </strong>
+                <strong>RWF {expense.amount.toLocaleString()}</strong>
 
-                <button
-                  type="button"
-                  onClick={() => handleDelete(expense.id)}
-                  aria-label={`Delete ${expense.title}`}
-                >
-                  Delete
-                </button>
+                <div className="expense-item-actions">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(expense)}
+                    aria-label={`Edit ${expense.title}`}
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(expense.id)}
+                    aria-label={`Delete ${expense.title}`}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
