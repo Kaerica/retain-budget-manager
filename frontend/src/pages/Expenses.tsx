@@ -1,24 +1,29 @@
-import { useEffect, useState } from "react";
-
-interface Expense {
-  id: number;
-  title: string;
-  category: string;
-  amount: number;
-  date: string;
-}
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../store/store";
+import {
+  addExpense,
+  updateExpense,
+  deleteExpense,
+  setSearchTerm,
+  setCategoryFilter,
+  setSortBy,
+  setSortOrder,
+  type Expense,
+} from "../store/expenseSlice";
 
 const STORAGE_KEY = "retain-expenses";
 
 export default function Expenses() {
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? (JSON.parse(saved) as Expense[]) : [];
-    } catch {
-      return [];
-    }
-  });
+  const dispatch = useDispatch<AppDispatch>();
+
+  const {
+    expenses,
+    searchTerm,
+    categoryFilter,
+    sortBy,
+    sortOrder,
+  } = useSelector((state: RootState) => state.expenses);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Food");
@@ -26,7 +31,6 @@ export default function Expenses() {
   const [date, setDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
-
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
@@ -65,18 +69,14 @@ export default function Expenses() {
     }
 
     if (editingId !== null) {
-      setExpenses((current) =>
-        current.map((expense) =>
-          expense.id === editingId
-            ? {
-                ...expense,
-                title: title.trim(),
-                category,
-                amount: numericAmount,
-                date,
-              }
-            : expense
-        )
+      dispatch(
+        updateExpense({
+          id: editingId,
+          title: title.trim(),
+          category,
+          amount: numericAmount,
+          date,
+        })
       );
     } else {
       const newExpense: Expense = {
@@ -87,7 +87,7 @@ export default function Expenses() {
         date,
       };
 
-      setExpenses((current) => [newExpense, ...current]);
+      dispatch(addExpense(newExpense));
     }
 
     resetForm();
@@ -100,19 +100,39 @@ export default function Expenses() {
     setAmount(String(expense.amount));
     setDate(expense.date);
     setError("");
-
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleDelete(id: number) {
-    setExpenses((current) =>
-      current.filter((expense) => expense.id !== id)
-    );
+    dispatch(deleteExpense(id));
 
     if (editingId === id) {
       resetForm();
     }
   }
+
+  const filteredExpenses = useMemo(() => {
+    const filtered = expenses.filter((expense) => {
+      const matchesSearch =
+        expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expense.category.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesCategory =
+        categoryFilter === "All" ||
+        expense.category === categoryFilter;
+
+      return matchesSearch && matchesCategory;
+    });
+
+    return [...filtered].sort((a, b) => {
+      const comparison =
+        sortBy === "amount"
+          ? a.amount - b.amount
+          : a.date.localeCompare(b.date);
+
+      return sortOrder === "ascending" ? comparison : -comparison;
+    });
+  }, [expenses, searchTerm, categoryFilter, sortBy, sortOrder]);
 
   const totalExpenses = expenses.reduce(
     (total, expense) => total + expense.amount,
@@ -125,7 +145,7 @@ export default function Expenses() {
         <div>
           <p className="eyebrow">PERSONAL FINANCE</p>
           <h1>Expenses</h1>
-          <p>Record, update, and manage your daily spending.</p>
+          <p>Record, update, search, and organize your spending.</p>
         </div>
       </div>
 
@@ -234,13 +254,82 @@ export default function Expenses() {
 
       <article className="content-panel" style={{ marginTop: "24px" }}>
         <h2>Recent Expenses</h2>
-        <p>Your recorded expenses appear here.</p>
+        <p>Search and organize your recorded expenses.</p>
 
-        {expenses.length === 0 ? (
-          <p>No expenses yet. Add your first expense above.</p>
+        <div className="expense-filters">
+          <label htmlFor="expense-search">
+            Search
+            <input
+              id="expense-search"
+              type="search"
+              placeholder="Search by name or category..."
+              value={searchTerm}
+              onChange={(event) => dispatch(setSearchTerm(event.target.value))}
+            />
+          </label>
+
+          <label htmlFor="category-filter">
+            Filter by category
+            <select
+              id="category-filter"
+              value={categoryFilter}
+              onChange={(event) =>
+                dispatch(setCategoryFilter(event.target.value))
+              }
+            >
+              <option value="All">All categories</option>
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Education">Education</option>
+              <option value="Housing">Housing</option>
+              <option value="Health">Health</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+
+          <label htmlFor="sort-by">
+            Sort by
+            <select
+              id="sort-by"
+              value={sortBy}
+              onChange={(event) =>
+                dispatch(setSortBy(event.target.value as "date" | "amount"))
+              }
+            >
+              <option value="date">Date</option>
+              <option value="amount">Amount</option>
+            </select>
+          </label>
+
+          <label htmlFor="sort-order">
+            Order
+            <select
+              id="sort-order"
+              value={sortOrder}
+              onChange={(event) =>
+                dispatch(
+                  setSortOrder(
+                    event.target.value as "ascending" | "descending"
+                  )
+                )
+              }
+            >
+              <option value="descending">Highest / Newest first</option>
+              <option value="ascending">Lowest / Oldest first</option>
+            </select>
+          </label>
+        </div>
+
+        <p>
+          Showing {filteredExpenses.length} of {expenses.length} expenses.
+        </p>
+
+        {filteredExpenses.length === 0 ? (
+          <p>No matching expenses found.</p>
         ) : (
           <div className="expense-list">
-            {expenses.map((expense) => (
+            {filteredExpenses.map((expense) => (
               <div className="expense-item" key={expense.id}>
                 <div>
                   <strong>{expense.title}</strong>
