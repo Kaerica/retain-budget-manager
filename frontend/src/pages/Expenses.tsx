@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Expense {
   id: number;
@@ -9,19 +8,50 @@ interface Expense {
   date: string;
 }
 
+const STORAGE_KEY = "retain-expenses";
+
 export default function Expenses() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    try {
+      const savedExpenses = localStorage.getItem(STORAGE_KEY);
+      return savedExpenses ? (JSON.parse(savedExpenses) as Expense[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Food");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
+  const [error, setError] = useState("");
 
+  // Save expenses whenever the list changes.
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+  }, [expenses]);
+
+  // Add a new expense.
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
 
-    if (!title.trim() || !amount || Number(amount) <= 0 || !date) {
+    const numericAmount = Number(amount);
+
+    if (!title.trim()) {
+      setError("Please enter an expense name.");
+      return;
+    }
+
+    if (!amount || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError("Please enter an amount greater than zero.");
+      return;
+    }
+
+    if (!date) {
+      setError("Please select an expense date.");
       return;
     }
 
@@ -29,7 +59,7 @@ export default function Expenses() {
       id: Date.now(),
       title: title.trim(),
       category,
-      amount: Number(amount),
+      amount: numericAmount,
       date,
     };
 
@@ -44,6 +74,7 @@ export default function Expenses() {
     setDate(new Date().toISOString().slice(0, 10));
   }
 
+  // Delete an expense.
   function handleDelete(id: number) {
     setExpenses((currentExpenses) =>
       currentExpenses.filter((expense) => expense.id !== id)
@@ -65,6 +96,7 @@ export default function Expenses() {
         </div>
       </div>
 
+      {/* Expense summary */}
       <div className="summary-grid">
         <article className="summary-card">
           <div className="summary-card-top">
@@ -72,7 +104,7 @@ export default function Expenses() {
             <span className="summary-icon">↗</span>
           </div>
           <h2>RWF {totalExpenses.toLocaleString()}</h2>
-          <p>Your total spending recorded in this session.</p>
+          <p>Total spending recorded in this browser.</p>
         </article>
 
         <article className="summary-card">
@@ -81,13 +113,20 @@ export default function Expenses() {
             <span className="summary-icon">▤</span>
           </div>
           <h2>{expenses.length}</h2>
-          <p>Expenses you have added.</p>
+          <p>Total expenses you have added.</p>
         </article>
       </div>
 
+      {/* Add expense form */}
       <article className="content-panel">
         <h2>Add a New Expense</h2>
         <p>Enter the details of your purchase or payment.</p>
+
+        {error && (
+          <p role="alert" className="form-error">
+            {error}
+          </p>
+        )}
 
         <form className="expense-form" onSubmit={handleSubmit}>
           <label htmlFor="expense-title">
@@ -148,9 +187,10 @@ export default function Expenses() {
         </form>
       </article>
 
+      {/* Recent expenses */}
       <article className="content-panel" style={{ marginTop: "24px" }}>
         <h2>Recent Expenses</h2>
-        <p>Your newly recorded expenses appear here.</p>
+        <p>Your recorded expenses appear here.</p>
 
         {expenses.length === 0 ? (
           <p>No expenses yet. Add your first expense above.</p>
