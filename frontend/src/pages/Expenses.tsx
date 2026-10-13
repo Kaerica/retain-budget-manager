@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../store/store";
 import {
-  addExpense,
-  updateExpense,
-  deleteExpense,
+  fetchExpenses,
+  createExpense,
+  saveExpense,
+  removeExpense,
   setSearchTerm,
   setCategoryFilter,
   setSortBy,
   setSortOrder,
+  clearExpenseError,
   type Expense,
 } from "../store/expenseSlice";
-
-const STORAGE_KEY = "retain-expenses";
 
 export default function Expenses() {
   const dispatch = useDispatch<AppDispatch>();
@@ -23,6 +24,8 @@ export default function Expenses() {
     categoryFilter,
     sortBy,
     sortOrder,
+    loading,
+    error: apiError,
   } = useSelector((state: RootState) => state.expenses);
 
   const [title, setTitle] = useState("");
@@ -33,10 +36,11 @@ export default function Expenses() {
   );
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
-  }, [expenses]);
+    dispatch(fetchExpenses());
+  }, [dispatch]);
 
   function resetForm() {
     setTitle("");
@@ -45,11 +49,13 @@ export default function Expenses() {
     setDate(new Date().toISOString().slice(0, 10));
     setEditingId(null);
     setError("");
+    dispatch(clearExpenseError());
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    dispatch(clearExpenseError());
 
     const numericAmount = Number(amount);
 
@@ -68,29 +74,40 @@ export default function Expenses() {
       return;
     }
 
-    if (editingId !== null) {
-      dispatch(
-        updateExpense({
-          id: editingId,
-          title: title.trim(),
-          category,
-          amount: numericAmount,
-          date,
-        })
+    setSubmitting(true);
+
+    try {
+      if (editingId !== null) {
+        await dispatch(
+          saveExpense({
+            id: editingId,
+            title: title.trim(),
+            category,
+            amount: numericAmount,
+            date,
+          })
+        ).unwrap();
+      } else {
+        await dispatch(
+          createExpense({
+            title: title.trim(),
+            category,
+            amount: numericAmount,
+            date,
+          })
+        ).unwrap();
+      }
+
+      resetForm();
+    } catch {
+      setError(
+        editingId !== null
+          ? "Could not update the expense. Please try again."
+          : "Could not save the expense. Please check your connection and sign-in."
       );
-    } else {
-      const newExpense: Expense = {
-        id: Date.now(),
-        title: title.trim(),
-        category,
-        amount: numericAmount,
-        date,
-      };
-
-      dispatch(addExpense(newExpense));
+    } finally {
+      setSubmitting(false);
     }
-
-    resetForm();
   }
 
   function handleEdit(expense: Expense) {
@@ -100,14 +117,22 @@ export default function Expenses() {
     setAmount(String(expense.amount));
     setDate(expense.date);
     setError("");
+    dispatch(clearExpenseError());
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleDelete(id: number) {
-    dispatch(deleteExpense(id));
+  async function handleDelete(id: number) {
+    setError("");
+    dispatch(clearExpenseError());
 
-    if (editingId === id) {
-      resetForm();
+    try {
+      await dispatch(removeExpense(id)).unwrap();
+
+      if (editingId === id) {
+        resetForm();
+      }
+    } catch {
+      setError("Could not delete the expense. Please try again.");
     }
   }
 
@@ -118,8 +143,7 @@ export default function Expenses() {
         expense.category.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesCategory =
-        categoryFilter === "All" ||
-        expense.category === categoryFilter;
+        categoryFilter === "All" || expense.category === categoryFilter;
 
       return matchesSearch && matchesCategory;
     });
@@ -156,7 +180,7 @@ export default function Expenses() {
             <span className="summary-icon">↗</span>
           </div>
           <h2>RWF {totalExpenses.toLocaleString()}</h2>
-          <p>Total spending recorded in this browser.</p>
+          <p>Total spending saved to your account.</p>
         </article>
 
         <article className="summary-card">
@@ -177,9 +201,9 @@ export default function Expenses() {
             : "Enter the details of your purchase or payment."}
         </p>
 
-        {error && (
+        {(error || apiError) && (
           <p role="alert" className="form-error">
-            {error}
+            {error || apiError}
           </p>
         )}
 
@@ -239,8 +263,12 @@ export default function Expenses() {
           </label>
 
           <div className="expense-form-actions">
-            <button type="submit">
-              {editingId !== null ? "Save Changes" : "Add Expense"}
+            <button type="submit" disabled={submitting}>
+              {submitting
+                ? "Saving..."
+                : editingId !== null
+                  ? "Save Changes"
+                  : "Add Expense"}
             </button>
 
             {editingId !== null && (
@@ -325,7 +353,9 @@ export default function Expenses() {
           Showing {filteredExpenses.length} of {expenses.length} expenses.
         </p>
 
-        {filteredExpenses.length === 0 ? (
+        {loading ? (
+          <p>Loading expenses...</p>
+        ) : filteredExpenses.length === 0 ? (
           <p>No matching expenses found.</p>
         ) : (
           <div className="expense-list">
