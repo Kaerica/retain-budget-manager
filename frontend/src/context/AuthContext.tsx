@@ -1,9 +1,12 @@
+
 import {
   createContext,
   useContext,
   useState,
+  useEffect,
   type ReactNode,
 } from "react";
+import api from "../services/api";
 
 export interface User {
   id: number;
@@ -12,30 +15,39 @@ export interface User {
   role: "user" | "admin";
 }
 
+interface AuthResponse {
+  message: string;
+  user: {
+    id: number;
+    username: string;
+    name?: string;
+    email: string;
+  };
+  token: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  signup: (name: string, email: string, password: string) => boolean;
-  signin: (email: string, password: string) => boolean;
+  loading: boolean;
+  signup: (
+    name: string,
+    email: string,
+    password: string
+  ) => Promise<void>;
+  signin: (email: string, password: string) => Promise<void>;
   signout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const USERS_KEY = "retain-users";
 const SESSION_KEY = "retain-session";
-
-function getSavedUsers(): Array<User & { password: string }> {
-  try {
-    return JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
-  } catch {
-    return [];
-  }
-}
+const TOKEN_KEY = "retain-token";
 
 function getSavedSession(): User | null {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+    const saved = localStorage.getItem(SESSION_KEY);
+    return saved ? JSON.parse(saved) as User : null;
   } catch {
     return null;
   }
@@ -43,70 +55,60 @@ function getSavedSession(): User | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(getSavedSession);
+  const [loading, setLoading] = useState(true);
 
-  function signup(
+  useEffect(() => {
+    const token = localStorage.getItem(TOKEN_KEY);
+
+    if (!token) {
+      setUser(null);
+      localStorage.removeItem(SESSION_KEY);
+    }
+
+    setLoading(false);
+  }, []);
+
+  function saveSession(response: AuthResponse) {
+    const sessionUser: User = {
+      id: response.user.id,
+      name: response.user.name || response.user.username,
+      email: response.user.email,
+      role: "user",
+    };
+
+    localStorage.setItem(TOKEN_KEY, response.token);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
+    setUser(sessionUser);
+  }
+
+  async function signup(
     name: string,
     email: string,
     password: string
-  ): boolean {
-    const users = getSavedUsers();
-    const normalizedEmail = email.trim().toLowerCase();
-
-    if (users.some((savedUser) => savedUser.email === normalizedEmail)) {
-      return false;
-    }
-
-    const newUser: User & { password: string } = {
-      id: Date.now(),
+  ): Promise<void> {
+    const response = await api.post<AuthResponse>("signup/", {
       name: name.trim(),
-      email: normalizedEmail,
+      email: email.trim().toLowerCase(),
       password,
-      role: "user",
-    };
+    });
 
-    users.push(newUser);
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-
-    const sessionUser: User = {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      role: "user",
-    };
-
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-    setUser(sessionUser);
-
-    return true;
+    saveSession(response.data);
   }
 
-  function signin(email: string, password: string): boolean {
-    const normalizedEmail = email.trim().toLowerCase();
+  async function signin(
+    email: string,
+    password: string
+  ): Promise<void> {
+    const response = await api.post<AuthResponse>("signin/", {
+      email: email.trim().toLowerCase(),
+      password,
+    });
 
-    const savedUser = getSavedUsers().find(
-      (candidate) =>
-        candidate.email === normalizedEmail &&
-        candidate.password === password
-    );
-
-    if (!savedUser) {
-      return false;
-    }
-
-    const sessionUser: User = {
-      id: savedUser.id,
-      name: savedUser.name,
-      email: savedUser.email,
-      role: savedUser.role,
-    };
-
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-    setUser(sessionUser);
-
-    return true;
+    saveSession(response.data);
   }
 
   function signout() {
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(SESSION_KEY);
     setUser(null);
   }
@@ -116,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: user !== null,
+        loading,
         signup,
         signin,
         signout,

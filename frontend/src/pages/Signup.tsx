@@ -1,3 +1,4 @@
+
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -10,8 +11,9 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
@@ -25,14 +27,31 @@ export default function Signup() {
       return;
     }
 
-    const success = signup(name, email, password);
+    setSubmitting(true);
 
-    if (!success) {
-      setError("An account with this email already exists.");
-      return;
+    try {
+      await signup(name, email, password);
+      navigate("/");
+    } catch (err: unknown) {
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err &&
+        typeof err.response === "object" &&
+        err.response !== null &&
+        "data" in err.response &&
+        typeof err.response.data === "object" &&
+        err.response.data !== null
+          ? Object.values(err.response.data as Record<string, unknown>)
+              .flat()
+              .map(String)
+              .join(" ")
+          : "Unable to create your account. Please try again.";
+
+      setError(message);
+    } finally {
+      setSubmitting(false);
     }
-
-    navigate("/");
   }
 
   return (
@@ -71,7 +90,9 @@ export default function Signup() {
           required
         />
 
-        <button type="submit">Create account</button>
+        <button type="submit" disabled={submitting}>
+          {submitting ? "Creating account..." : "Create account"}
+        </button>
 
         <p>
           Already have an account? <Link to="/signin">Sign in</Link>
