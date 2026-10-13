@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 
 class SignupSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(write_only=True, max_length=150)
     password = serializers.CharField(
         write_only=True,
         validators=[validate_password],
@@ -13,7 +14,7 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "password"]
+        fields = ["id", "name", "email", "password"]
         read_only_fields = ["id"]
 
     def validate_email(self, value):
@@ -30,8 +31,16 @@ class SignupSerializer(serializers.ModelSerializer):
         return email
 
     def create(self, validated_data):
+        name = validated_data.pop("name").strip()
         password = validated_data.pop("password")
-        user = User(**validated_data)
+        email = validated_data["email"]
+
+        user = User(
+            username=email,
+            first_name=name,
+            **validated_data,
+        )
         user.set_password(password)
         user.save()
+
         return user

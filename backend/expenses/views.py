@@ -31,6 +31,7 @@ class SignupView(generics.CreateAPIView):
                 "user": {
                     "id": user.id,
                     "username": user.username,
+                    "name": user.first_name,
                     "email": user.email,
                 },
                 "token": token.key,
@@ -43,24 +44,32 @@ class SigninView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data.get("username", "").strip()
+        email = request.data.get("email", "").strip().lower()
         password = request.data.get("password", "")
 
-        if not username or not password:
+        if not email or not password:
             return Response(
-                {"detail": "Username and password are required."},
+                {"detail": "Email and password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        account = User.objects.filter(email__iexact=email).first()
+
+        if account is None:
+            return Response(
+                {"detail": "Invalid email or password."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         user = authenticate(
             request,
-            username=username,
+            username=account.username,
             password=password,
         )
 
         if user is None:
             return Response(
-                {"detail": "Invalid username or password."},
+                {"detail": "Invalid email or password."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -72,6 +81,7 @@ class SigninView(APIView):
                 "user": {
                     "id": user.id,
                     "username": user.username,
+                    "name": user.first_name,
                     "email": user.email,
                 },
                 "token": token.key,
