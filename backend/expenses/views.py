@@ -99,3 +99,41 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+
+from .models import Budget
+from .serializers import BudgetSerializer
+
+
+class BudgetView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        budgets = Budget.objects.filter(user=request.user)
+        serializer = BudgetSerializer(budgets, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = BudgetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        budget, created = Budget.objects.update_or_create(
+            user=request.user,
+            month=serializer.validated_data["month"],
+            year=serializer.validated_data["year"],
+            defaults={
+                "amount": serializer.validated_data["amount"],
+            },
+        )
+
+        result = BudgetSerializer(budget)
+
+        return Response(
+            result.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
