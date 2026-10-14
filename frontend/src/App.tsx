@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   Navigate,
@@ -10,6 +9,7 @@ import {
 import { useSelector } from "react-redux";
 
 import type { RootState } from "./store/store";
+import { getBudgets } from "./services/budgetService";
 import Expenses from "./pages/Expenses";
 import Budgets from "./pages/Budgets";
 import Signup from "./pages/Signup";
@@ -24,6 +24,8 @@ function ProtectedLayout() {
   const { user, isAuthenticated, signout } = useAuth();
   const navigate = useNavigate();
   const [activePage, setActivePage] = useState<Page>("Dashboard");
+  const [monthlyBudget, setMonthlyBudget] = useState(0);
+  const [budgetLoading, setBudgetLoading] = useState(true);
 
   const expenses = useSelector(
     (state: RootState) => state.expenses.expenses
@@ -31,6 +33,48 @@ function ProtectedLayout() {
 
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMonthlyBudget() {
+      setBudgetLoading(true);
+
+      try {
+        const budgets = await getBudgets();
+
+        const currentBudget = budgets.find(
+          (budget) =>
+            budget.month === currentMonth + 1 &&
+            budget.year === currentYear
+        );
+
+        if (!cancelled) {
+          setMonthlyBudget(
+            currentBudget ? Number(currentBudget.amount) : 0
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load monthly budget:", error);
+
+        if (!cancelled) {
+          setMonthlyBudget(0);
+        }
+      } finally {
+        if (!cancelled) {
+          setBudgetLoading(false);
+        }
+      }
+    }
+
+    if (isAuthenticated) {
+      loadMonthlyBudget();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage, isAuthenticated, currentMonth, currentYear]);
 
   const monthlyExpenses = expenses.filter((expense) => {
     const expenseDate = new Date(expense.date);
@@ -52,6 +96,13 @@ function ProtectedLayout() {
       Math.max(highest, Number(expense.amount || 0)),
     0
   );
+
+  const remainingBudget = monthlyBudget - totalSpent;
+
+  const budgetProgress =
+    monthlyBudget > 0
+      ? Math.min((totalSpent / monthlyBudget) * 100, 100)
+      : 0;
 
   const formatRWF = (amount: number) =>
     `RWF ${amount.toLocaleString("en-US")}`;
@@ -171,8 +222,14 @@ function ProtectedLayout() {
                   <span>Monthly Budget</span>
                   <span className="card-icon gold">◷</span>
                 </div>
-                <h2>RWF 300,000</h2>
-                <p className="muted-text">Example monthly budget</p>
+                <h2>
+                  {budgetLoading
+                    ? "Loading..."
+                    : formatRWF(monthlyBudget)}
+                </h2>
+                <p className="muted-text">
+                  Saved budget for this month
+                </p>
               </article>
 
               <article className="summary-card">
@@ -191,9 +248,11 @@ function ProtectedLayout() {
                   <span>Remaining Budget</span>
                   <span className="card-icon green">✓</span>
                 </div>
-                <h2>{formatRWF(300000 - totalSpent)}</h2>
+                <h2>{formatRWF(remainingBudget)}</h2>
                 <p className="muted-text">
-                  Based on the example RWF 300,000 budget
+                  {monthlyBudget > 0
+                    ? "Remaining from your saved budget"
+                    : "Save a monthly budget to track your balance"}
                 </p>
               </article>
 
@@ -218,34 +277,41 @@ function ProtectedLayout() {
                   </div>
 
                   <span className="status-badge">
-                    {totalSpent > 300000
-                      ? "Over budget"
-                      : totalSpent >= 240000
-                        ? "Approaching limit"
-                        : "Within budget"}
+                    {budgetLoading
+                      ? "Loading..."
+                      : monthlyBudget <= 0
+                        ? "No budget set"
+                        : totalSpent > monthlyBudget
+                          ? "Over budget"
+                          : totalSpent >= monthlyBudget * 0.8
+                            ? "Approaching limit"
+                            : "Within budget"}
                   </span>
                 </div>
 
                 <div className="budget-numbers">
                   <strong>{formatRWF(totalSpent)} spent</strong>
-                  <span>of RWF 300,000</span>
+                  <span>
+                    of{" "}
+                    {budgetLoading
+                      ? "Loading..."
+                      : formatRWF(monthlyBudget)}
+                  </span>
                 </div>
 
                 <div className="progress-track">
                   <div
                     className="progress-value"
                     style={{
-                      width: `${Math.min(
-                        (totalSpent / 300000) * 100,
-                        100
-                      )}%`,
+                      width: `${budgetProgress}%`,
                     }}
                   />
                 </div>
 
                 <p className="progress-caption">
-                  {Math.round((totalSpent / 300000) * 100)}% of the
-                  example budget used
+                  {monthlyBudget > 0
+                    ? `${Math.round(budgetProgress)}% of your saved budget used`
+                    : "Create a budget to track your spending progress"}
                 </p>
               </article>
 
