@@ -1,225 +1,353 @@
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../store/store";
 import { getBudgets, saveBudget } from "../services/budgetService";
 
-export default function Budgets() {
+function Budgets() {
   const expenses = useSelector(
     (state: RootState) => state.expenses.expenses
   );
 
-  const [budgetInput, setBudgetInput] = useState("");
-  const [budget, setBudget] = useState(0);
+  const [amount, setAmount] = useState("300000");
+  const [savedAmount, setSavedAmount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const year = today.getFullYear();
 
   useEffect(() => {
-    let cancelled = false;
-
     async function loadBudget() {
-      setLoading(true);
-      setError("");
-
       try {
-        const budgets = await getBudgets();
+        setError("");
 
+        const budgets = await getBudgets();
         const currentBudget = budgets.find(
-          (item) =>
-            item.month === currentMonth + 1 &&
-            item.year === currentYear
+          (budget) => budget.month === month && budget.year === year
         );
 
-        if (!cancelled) {
-          const amount = currentBudget
-            ? Number(currentBudget.amount)
-            : 0;
-
-          setBudget(amount);
-          setBudgetInput(amount > 0 ? String(amount) : "");
+        if (currentBudget) {
+          setAmount(String(currentBudget.amount));
+          setSavedAmount(Number(currentBudget.amount));
+        } else {
+          setSavedAmount(null);
         }
       } catch {
-        if (!cancelled) {
-          setError(
-            "Could not load your budget. Please sign in again and retry."
-          );
-        }
+        setError(
+          "Could not load your budget. Please sign in and try again."
+        );
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
     loadBudget();
+  }, [month, year]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [currentMonth, currentYear]);
-
-  const spent = expenses
+  const monthlyExpenses = expenses
     .filter((expense) => {
-      const date = new Date(`${expense.date}T00:00:00`);
+      const expenseDate = new Date(`${expense.date}T00:00:00`);
 
       return (
-        date.getMonth() === currentMonth &&
-        date.getFullYear() === currentYear
+        expenseDate.getMonth() + 1 === month &&
+        expenseDate.getFullYear() === year
       );
     })
-    .reduce((total, expense) => total + expense.amount, 0);
+    .reduce((total, expense) => total + Number(expense.amount), 0);
 
-  const remaining = budget - spent;
+  const budgetAmount = Number(amount) || 0;
+  const remaining = budgetAmount - monthlyExpenses;
   const percentage =
-    budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+    budgetAmount > 0
+      ? Math.min((monthlyExpenses / budgetAmount) * 100, 100)
+      : 0;
 
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
+  const currency = (value: number) =>
+    new Intl.NumberFormat("en-RW", {
+      style: "currency",
+      currency: "RWF",
+      maximumFractionDigits: 0,
+    }).format(value);
+
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setMessage("");
+    setError("");
 
-    const amount = Number(budgetInput);
+    const value = Number(amount);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError("Please enter a budget greater than zero.");
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Please enter a budget amount greater than zero.");
       return;
     }
 
-    setSaving(true);
-    setError("");
-    setMessage("");
-
     try {
+      setSaving(true);
+
       const savedBudget = await saveBudget({
-        amount,
-        month: currentMonth + 1,
-        year: currentYear,
+        amount: value,
+        month,
+        year,
       });
 
-      setBudget(Number(savedBudget.amount));
-      setBudgetInput(String(savedBudget.amount));
-      setMessage("Your monthly budget has been saved successfully.");
+      setAmount(String(savedBudget.amount));
+      setSavedAmount(Number(savedBudget.amount));
+      setMessage("Your monthly budget was saved successfully.");
     } catch {
       setError(
-        "Could not save your budget. Please check your sign-in and try again."
+        "Could not save your budget. Please check that you are signed in and try again."
       );
     } finally {
       setSaving(false);
     }
   }
 
-  const money = (amount: number) =>
-    new Intl.NumberFormat("en-RW", {
-      style: "currency",
-      currency: "RWF",
-      maximumFractionDigits: 0,
-    }).format(amount);
+  const monthName = today.toLocaleDateString("en", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const cardStyle: React.CSSProperties = {
+    background: "#ffffff",
+    border: "1px solid #e5e7eb",
+    borderRadius: "12px",
+    padding: "22px",
+  };
+
+  if (loading) {
+    return (
+      <main style={{ padding: "32px", color: "#1e293b" }}>
+        <h1>Monthly Budget</h1>
+        <p>Loading your budget...</p>
+      </main>
+    );
+  }
 
   return (
-    <section className="page">
-      <h1>Monthly Budget</h1>
-      <p>Set a monthly spending limit and track your progress.</p>
-
-      <div className="budget-card">
-        <h2>Your monthly budget</h2>
-
-        <p>
-          Budget period:{" "}
-          <strong>
-            {today.toLocaleDateString("en", {
-              month: "long",
-              year: "numeric",
-            })}
-          </strong>
+    <main
+      style={{
+        maxWidth: "1100px",
+        margin: "0 auto",
+        padding: "32px 24px",
+        color: "#1e293b",
+        background: "#f8fafc",
+        minHeight: "100vh",
+      }}
+    >
+      <header style={{ marginBottom: "28px" }}>
+        <p
+          style={{
+            color: "#b8860b",
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "1px",
+          }}
+        >
+          Your financial plan
         </p>
 
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
+        <h1 style={{ marginBottom: "8px" }}>Monthly Budget</h1>
 
-        {message && (
-          <p role="status">
-            {message}
+        <p style={{ color: "#64748b" }}>
+          Set your spending limit and keep track of your money.
+        </p>
+
+        <p style={{ fontWeight: 600 }}>{monthName}</p>
+      </header>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            background: "#fef2f2",
+            color: "#b91c1c",
+            padding: "14px",
+            borderRadius: "8px",
+            marginBottom: "18px",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {message && (
+        <div
+          role="status"
+          style={{
+            background: "#ecfdf5",
+            color: "#047857",
+            padding: "14px",
+            borderRadius: "8px",
+            marginBottom: "18px",
+          }}
+        >
+          {message}
+        </div>
+      )}
+
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+          gap: "18px",
+          marginBottom: "24px",
+        }}
+      >
+        <div style={cardStyle}>
+          <p style={{ color: "#64748b", marginTop: 0 }}>Monthly budget</p>
+          <h2>{currency(budgetAmount)}</h2>
+          <p style={{ color: "#64748b", marginBottom: 0 }}>
+            Your planned spending limit
           </p>
-        )}
+        </div>
+
+        <div style={cardStyle}>
+          <p style={{ color: "#64748b", marginTop: 0 }}>Money spent</p>
+          <h2 style={{ color: "#b45309" }}>
+            {currency(monthlyExpenses)}
+          </h2>
+          <p style={{ color: "#64748b", marginBottom: 0 }}>
+            Expenses recorded this month
+          </p>
+        </div>
+
+        <div style={cardStyle}>
+          <p style={{ color: "#64748b", marginTop: 0 }}>Money remaining</p>
+          <h2 style={{ color: remaining < 0 ? "#dc2626" : "#047857" }}>
+            {currency(remaining)}
+          </h2>
+          <p style={{ color: "#64748b", marginBottom: 0 }}>
+            {remaining < 0
+              ? "You have exceeded your budget."
+              : "Available within your budget"}
+          </p>
+        </div>
+      </section>
+
+      <section style={{ ...cardStyle, marginBottom: "24px" }}>
+        <h2 style={{ marginTop: 0 }}>Set or edit your budget</h2>
+
+        <p style={{ color: "#64748b" }}>
+          Enter the amount you want to spend during {monthName}.
+        </p>
 
         <form onSubmit={handleSave}>
-          <label htmlFor="monthly-budget">
-            Budget amount (RWF)
+          <label
+            htmlFor="budget-amount"
+            style={{
+              display: "block",
+              fontWeight: 600,
+              marginBottom: "8px",
+            }}
+          >
+            Monthly budget amount (RWF)
           </label>
 
           <input
-            id="monthly-budget"
+            id="budget-amount"
             type="number"
             min="1"
             step="1"
-            value={budgetInput}
-            onChange={(event) => setBudgetInput(event.target.value)}
+            value={amount}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setMessage("");
+            }}
             required
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              boxSizing: "border-box",
+              padding: "12px",
+              border: "1px solid #cbd5e1",
+              borderRadius: "8px",
+              fontSize: "16px",
+              marginBottom: "16px",
+            }}
           />
 
-          <button type="submit" disabled={loading || saving}>
-            {loading
-              ? "Loading..."
-              : saving
-                ? "Saving..."
-                : "Save Budget"}
-          </button>
-        </form>
-
-        {loading ? (
-          <p>Loading your budget...</p>
-        ) : (
-          <div className="budget-summary">
-            <p>
-              Monthly limit: <strong>{money(budget)}</strong>
-            </p>
-
-            <p>
-              Total spent: <strong>{money(spent)}</strong>
-            </p>
-
-            <p>
-              Remaining: <strong>{money(remaining)}</strong>
-            </p>
-
-            <div
-              className="budget-progress"
-              role="progressbar"
-              aria-label="Monthly budget used"
-              aria-valuenow={Math.round(percentage)}
-              aria-valuemin={0}
-              aria-valuemax={100}
+          <div>
+            <button
+              type="submit"
+              disabled={saving}
+              style={{
+                background: "#172554",
+                color: "#ffffff",
+                border: 0,
+                borderRadius: "8px",
+                padding: "12px 22px",
+                fontWeight: 600,
+                cursor: saving ? "wait" : "pointer",
+                opacity: saving ? 0.7 : 1,
+              }}
             >
-              <div
-                className="budget-progress-fill"
-                style={{ width: `${percentage}%` }}
-              />
-            </div>
-
-            <p>{percentage.toFixed(1)}% of your budget used</p>
-
-            <p>
-              Status:{" "}
-              <strong>
-                {budget <= 0
-                  ? "No budget set"
-                  : spent > budget
-                    ? "Over budget"
-                    : percentage >= 80
-                      ? "Approaching budget limit"
-                      : "Within budget"}
-              </strong>
-            </p>
+              {saving
+                ? "Saving..."
+                : savedAmount !== null
+                  ? "Update Budget"
+                  : "Save Budget"}
+            </button>
           </div>
-        )}
-      </div>
-    </section>
+        </form>
+      </section>
+
+      <section style={cardStyle}>
+        <h2 style={{ marginTop: 0 }}>Spending progress</h2>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap",
+            marginBottom: "10px",
+          }}
+        >
+          <span>{percentage.toFixed(1)}% of budget used</span>
+          <span>{currency(monthlyExpenses)} spent</span>
+        </div>
+
+        <div
+          style={{
+            width: "100%",
+            height: "14px",
+            background: "#e2e8f0",
+            borderRadius: "20px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: `${percentage}%`,
+              height: "100%",
+              background:
+                percentage >= 100
+                  ? "#dc2626"
+                  : percentage >= 80
+                    ? "#d97706"
+                    : "#059669",
+              borderRadius: "20px",
+              transition: "width 0.3s ease",
+            }}
+          />
+        </div>
+
+        <p style={{ color: "#64748b", marginBottom: 0 }}>
+          {budgetAmount <= 0
+            ? "Set a budget to track your spending progress."
+            : percentage >= 100
+              ? "You have reached or exceeded your spending limit."
+              : percentage >= 80
+                ? "You are approaching your budget limit."
+                : "You are within your planned spending limit."}
+        </p>
+      </section>
+    </main>
   );
 }
+
+export default Budgets;

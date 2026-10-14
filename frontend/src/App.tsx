@@ -11,6 +11,7 @@ import { useSelector } from "react-redux";
 
 import type { RootState } from "./store/store";
 import Expenses from "./pages/Expenses";
+import Budgets from "./pages/Budgets";
 import Signup from "./pages/Signup";
 import Signin from "./pages/Signin";
 import { useAuth } from "./context/AuthContext";
@@ -130,7 +131,9 @@ function ProtectedLayout() {
       <main className="main-area">
         <header className="topbar">
           <div>
-            <p className="breadcrumb">My Workspace / {activePage}</p>
+            <p className="breadcrumb">
+              My Workspace / {activePage}
+            </p>
             <h2>{activePage}</h2>
           </div>
 
@@ -148,7 +151,9 @@ function ProtectedLayout() {
               <div>
                 <p className="eyebrow">YOUR FINANCIAL OVERVIEW</p>
                 <h1>Welcome, {user?.name || "User"}!</h1>
-                <p>Here is an overview of your personal finances.</p>
+                <p>
+                  Here is an overview of your personal finances.
+                </p>
               </div>
 
               <button
@@ -176,7 +181,9 @@ function ProtectedLayout() {
                   <span className="card-icon blue">↗</span>
                 </div>
                 <h2>{formatRWF(totalSpent)}</h2>
-                <p className="muted-text">Expenses recorded this month</p>
+                <p className="muted-text">
+                  Expenses recorded this month
+                </p>
               </article>
 
               <article className="summary-card">
@@ -196,7 +203,9 @@ function ProtectedLayout() {
                   <span className="card-icon red">↑</span>
                 </div>
                 <h2>{formatRWF(highestExpense)}</h2>
-                <p className="muted-text">Largest expense this month</p>
+                <p className="muted-text">
+                  Largest expense this month
+                </p>
               </article>
             </div>
 
@@ -235,8 +244,8 @@ function ProtectedLayout() {
                 </div>
 
                 <p className="progress-caption">
-                  {Math.round((totalSpent / 300000) * 100)}% of the example
-                  budget used
+                  {Math.round((totalSpent / 300000) * 100)}% of the
+                  example budget used
                 </p>
               </article>
 
@@ -282,20 +291,16 @@ function ProtectedLayout() {
 
         {activePage === "Budgets" && (
           <section className="page-content">
-            <h1>Budgets</h1>
-            <p>Plan how much you want to spend each month.</p>
-
-            <article className="content-card">
-              <h3>Monthly Budgets</h3>
-              <p>The budget creation form will be our next step.</p>
-            </article>
+            <Budgets />
           </section>
         )}
 
         {activePage === "Reports" && (
           <section className="page-content">
             <h1>Reports</h1>
-            <p>Review your spending patterns and financial progress.</p>
+            <p>
+              Review your spending patterns and financial progress.
+            </p>
 
             <article className="content-card">
               <h3>Spending Reports</h3>
