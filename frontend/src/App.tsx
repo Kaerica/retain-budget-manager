@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Link,
@@ -18,11 +19,17 @@ import { useAuth } from "./context/AuthContext";
 
 import "./App.css";
 
-type Page = "Dashboard" | "Expenses" | "Budgets" | "Reports" | "Settings";
+type Page =
+  | "Dashboard"
+  | "Expenses"
+  | "Budgets"
+  | "Reports"
+  | "Settings";
 
 function ProtectedLayout() {
   const { user, isAuthenticated, signout } = useAuth();
   const navigate = useNavigate();
+
   const [activePage, setActivePage] = useState<Page>("Dashboard");
   const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [budgetLoading, setBudgetLoading] = useState(true);
@@ -45,8 +52,8 @@ function ProtectedLayout() {
 
         const currentBudget = budgets.find(
           (budget) =>
-            budget.month === currentMonth + 1 &&
-            budget.year === currentYear
+            Number(budget.month) === currentMonth + 1 &&
+            Number(budget.year) === currentYear
         );
 
         if (!cancelled) {
@@ -91,6 +98,17 @@ function ProtectedLayout() {
     0
   );
 
+  const spendingByCategory = monthlyExpenses.reduce<
+    Record<string, number>
+  >((totals, expense) => {
+    const category = expense.category || "Other";
+
+    totals[category] =
+      (totals[category] || 0) + Number(expense.amount || 0);
+
+    return totals;
+  }, {});
+
   const highestExpense = monthlyExpenses.reduce(
     (highest, expense) =>
       Math.max(highest, Number(expense.amount || 0)),
@@ -104,8 +122,28 @@ function ProtectedLayout() {
       ? Math.min((totalSpent / monthlyBudget) * 100, 100)
       : 0;
 
+  const budgetUsagePercentage =
+    monthlyBudget > 0 ? (totalSpent / monthlyBudget) * 100 : 0;
+
+  const budgetStatus =
+    monthlyBudget <= 0
+      ? "No budget set"
+      : totalSpent > monthlyBudget
+        ? "Over budget"
+        : budgetUsagePercentage >= 80
+          ? "Approaching limit"
+          : "Within budget";
+
   const formatRWF = (amount: number) =>
     `RWF ${amount.toLocaleString("en-US")}`;
+
+  const recentExpenses = [...expenses]
+    .filter((expense) => !Number.isNaN(new Date(expense.date).getTime()))
+    .sort(
+      (a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
+    .slice(0, 5);
 
   if (!isAuthenticated) {
     return <Navigate to="/signin" replace />;
@@ -200,7 +238,9 @@ function ProtectedLayout() {
           <section className="page-content">
             <div className="welcome-section">
               <div>
-                <p className="eyebrow">YOUR FINANCIAL OVERVIEW</p>
+                <p className="eyebrow">
+                  YOUR FINANCIAL OVERVIEW
+                </p>
                 <h1>Welcome, {user?.name || "User"}!</h1>
                 <p>
                   Here is an overview of your personal finances.
@@ -276,16 +316,20 @@ function ProtectedLayout() {
                     <p>Monthly spending progress</p>
                   </div>
 
-                  <span className="status-badge">
-                    {budgetLoading
-                      ? "Loading..."
-                      : monthlyBudget <= 0
-                        ? "No budget set"
-                        : totalSpent > monthlyBudget
-                          ? "Over budget"
-                          : totalSpent >= monthlyBudget * 0.8
-                            ? "Approaching limit"
-                            : "Within budget"}
+                  <span
+                    className={`status-badge ${
+                      budgetLoading
+                        ? ""
+                        : monthlyBudget <= 0
+                          ? "no-budget"
+                          : totalSpent > monthlyBudget
+                            ? "over-budget"
+                            : budgetUsagePercentage >= 80
+                              ? "approaching-limit"
+                              : "within-budget"
+                    }`}
+                  >
+                    {budgetLoading ? "Loading..." : budgetStatus}
                   </span>
                 </div>
 
@@ -304,15 +348,76 @@ function ProtectedLayout() {
                     className="progress-value"
                     style={{
                       width: `${budgetProgress}%`,
+                      background:
+                        monthlyBudget > 0 &&
+                        totalSpent > monthlyBudget
+                          ? "#dc2626"
+                          : budgetUsagePercentage >= 80
+                            ? "#d97706"
+                            : undefined,
                     }}
                   />
                 </div>
 
                 <p className="progress-caption">
                   {monthlyBudget > 0
-                    ? `${Math.round(budgetProgress)}% of your saved budget used`
+                    ? `${Math.round(budgetUsagePercentage)}% of your saved budget used`
                     : "Create a budget to track your spending progress"}
                 </p>
+
+                {!budgetLoading && monthlyBudget > 0 && (
+                  <div
+                    role="status"
+                    style={{
+                      marginTop: "18px",
+                      padding: "14px 16px",
+                      borderRadius: "10px",
+                      background:
+                        totalSpent > monthlyBudget
+                          ? "#fef2f2"
+                          : budgetUsagePercentage >= 80
+                            ? "#fffbeb"
+                            : "#f0fdf4",
+                      border: `1px solid ${
+                        totalSpent > monthlyBudget
+                          ? "#fecaca"
+                          : budgetUsagePercentage >= 80
+                            ? "#fde68a"
+                            : "#bbf7d0"
+                      }`,
+                      color:
+                        totalSpent > monthlyBudget
+                          ? "#991b1b"
+                          : budgetUsagePercentage >= 80
+                            ? "#92400e"
+                            : "#166534",
+                    }}
+                  >
+                    <strong>
+                      {totalSpent > monthlyBudget
+                        ? "Budget exceeded"
+                        : budgetUsagePercentage >= 80
+                          ? "Budget warning"
+                          : "You are on track"}
+                    </strong>
+
+                    <p style={{ margin: "6px 0 0" }}>
+                      {totalSpent > monthlyBudget
+                        ? `You have exceeded your monthly budget by ${formatRWF(
+                            totalSpent - monthlyBudget
+                          )}. Review your expenses to get back on track.`
+                        : budgetUsagePercentage >= 80
+                          ? `You have used ${Math.round(
+                              budgetUsagePercentage
+                            )}% of your monthly budget. Only ${formatRWF(
+                              remainingBudget
+                            )} remains.`
+                          : `You have ${formatRWF(
+                              remainingBudget
+                            )} remaining in your monthly budget.`}
+                    </p>
+                  </div>
+                )}
               </article>
 
               <article className="content-card quick-actions">
@@ -346,6 +451,73 @@ function ProtectedLayout() {
                 </button>
               </article>
             </div>
+
+            <article
+              className="content-card recent-expenses"
+              style={{ marginTop: "24px" }}
+            >
+              <div className="section-heading">
+                <div>
+                  <h3>Recent Expenses</h3>
+                  <p>Your five most recent recorded expenses</p>
+                </div>
+
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => setActivePage("Expenses")}
+                >
+                  View All
+                </button>
+              </div>
+
+              {recentExpenses.length === 0 ? (
+                <p className="muted-text">
+                  No expenses recorded yet. Add your first expense to
+                  see it here.
+                </p>
+              ) : (
+                <div className="recent-expenses-list">
+                  {recentExpenses.map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="recent-expense-row"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "16px",
+                        padding: "14px 0",
+                        borderBottom: "1px solid #eee",
+                      }}
+                    >
+                      <div>
+                        <strong>
+                          {"description" in expense &&
+                          typeof expense.description === "string"
+                            ? expense.description
+                            : "title" in expense &&
+                                typeof expense.title === "string"
+                              ? expense.title
+                              : expense.category || "Expense"}
+                        </strong>
+                        <p
+                          className="muted-text"
+                          style={{ margin: "5px 0 0" }}
+                        >
+                          {expense.category || "Other"} ·{" "}
+                          {new Date(expense.date).toLocaleDateString()}
+                        </p>
+                      </div>
+
+                      <strong>
+                        {formatRWF(Number(expense.amount || 0))}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
           </section>
         )}
 
@@ -368,9 +540,121 @@ function ProtectedLayout() {
               Review your spending patterns and financial progress.
             </p>
 
-            <article className="content-card">
-              <h3>Spending Reports</h3>
-              <p>Reports will be added in a later step.</p>
+            <div className="summary-grid">
+              <article className="summary-card">
+                <div className="card-heading">
+                  <span>Total Spent This Month</span>
+                  <span className="card-icon blue">↗</span>
+                </div>
+                <h2>{formatRWF(totalSpent)}</h2>
+                <p className="muted-text">
+                  All recorded expenses this month
+                </p>
+              </article>
+
+              <article className="summary-card">
+                <div className="card-heading">
+                  <span>Monthly Budget</span>
+                  <span className="card-icon gold">◷</span>
+                </div>
+                <h2>
+                  {budgetLoading
+                    ? "Loading..."
+                    : formatRWF(monthlyBudget)}
+                </h2>
+                <p className="muted-text">
+                  Your saved monthly budget
+                </p>
+              </article>
+
+              <article className="summary-card">
+                <div className="card-heading">
+                  <span>Remaining Budget</span>
+                  <span className="card-icon green">✓</span>
+                </div>
+                <h2>{formatRWF(remainingBudget)}</h2>
+                <p className="muted-text">
+                  Budget minus monthly expenses
+                </p>
+              </article>
+            </div>
+
+            <article
+              className="content-card"
+              style={{ marginTop: "24px" }}
+            >
+              <h3>Highest Expense This Month</h3>
+              <h2>{formatRWF(highestExpense)}</h2>
+              <p>
+                Largest single expense recorded this month.
+              </p>
+            </article>
+
+            <article
+              className="content-card"
+              style={{ marginTop: "24px" }}
+            >
+              <h3>Spending by Category</h3>
+              <p>
+                See how much you have spent in each category this month.
+              </p>
+
+              {Object.keys(spendingByCategory).length === 0 ? (
+                <p>No expenses recorded for this month yet.</p>
+              ) : (
+                Object.entries(spendingByCategory)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([category, amount]) => {
+                    const percentage =
+                      totalSpent > 0
+                        ? (amount / totalSpent) * 100
+                        : 0;
+
+                    return (
+                      <div
+                        key={category}
+                        style={{
+                          padding: "14px 0",
+                          borderBottom: "1px solid #eee",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "16px",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <strong>{category}</strong>
+                          <strong>{formatRWF(amount)}</strong>
+                        </div>
+
+                        <div
+                          style={{
+                            height: "8px",
+                            background: "#eee",
+                            borderRadius: "8px",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${percentage}%`,
+                              background: "#d4a72c",
+                              borderRadius: "8px",
+                            }}
+                          />
+                        </div>
+
+                        <p className="muted-text">
+                          {percentage.toFixed(1)}% of monthly spending
+                        </p>
+                      </div>
+                    );
+                  })
+              )}
             </article>
           </section>
         )}

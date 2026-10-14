@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../store/store";
+
 import {
   fetchExpenses,
   createExpense,
@@ -37,6 +38,10 @@ export default function Expenses() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Date-range filters
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     dispatch(fetchExpenses());
@@ -145,23 +150,88 @@ export default function Expenses() {
       const matchesCategory =
         categoryFilter === "All" || expense.category === categoryFilter;
 
-      return matchesSearch && matchesCategory;
+      const matchesStartDate =
+        !startDate || expense.date >= startDate;
+
+      const matchesEndDate =
+        !endDate || expense.date <= endDate;
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesStartDate &&
+        matchesEndDate
+      );
     });
 
     return [...filtered].sort((a, b) => {
       const comparison =
         sortBy === "amount"
-          ? a.amount - b.amount
+          ? Number(a.amount) - Number(b.amount)
           : a.date.localeCompare(b.date);
 
       return sortOrder === "ascending" ? comparison : -comparison;
     });
-  }, [expenses, searchTerm, categoryFilter, sortBy, sortOrder]);
+  }, [
+    expenses,
+    searchTerm,
+    categoryFilter,
+    sortBy,
+    sortOrder,
+    startDate,
+    endDate,
+  ]);
 
-  const totalExpenses = expenses.reduce(
-    (total, expense) => total + expense.amount,
+  const totalExpenses = filteredExpenses.reduce(
+    (total, expense) => total + Number(expense.amount || 0),
     0
   );
+
+  function clearDateFilters() {
+    setStartDate("");
+    setEndDate("");
+  }
+
+  function exportExpensesToCSV() {
+    if (filteredExpenses.length === 0) {
+      alert("There are no matching expenses to export.");
+      return;
+    }
+
+    const headers = ["Title", "Category", "Amount (RWF)", "Date"];
+
+    const escapeCSV = (value: unknown) => {
+      const text = String(value ?? "");
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+
+    const rows = filteredExpenses.map((expense) => [
+      expense.title,
+      expense.category,
+      expense.amount,
+      expense.date,
+    ]);
+
+    const csvContent = [
+      headers.map(escapeCSV).join(","),
+      ...rows.map((row) => row.map(escapeCSV).join(",")),
+    ].join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "retain-expenses.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <section className="page-content">
@@ -171,25 +241,29 @@ export default function Expenses() {
           <h1>Expenses</h1>
           <p>Record, update, search, and organize your spending.</p>
         </div>
+
+        <button type="button" onClick={exportExpensesToCSV}>
+          Export CSV
+        </button>
       </div>
 
       <div className="summary-grid">
         <article className="summary-card">
           <div className="summary-card-top">
-            <span>Total Recorded Expenses</span>
+            <span>Filtered Spending Total</span>
             <span className="summary-icon">↗</span>
           </div>
           <h2>RWF {totalExpenses.toLocaleString()}</h2>
-          <p>Total spending saved to your account.</p>
+          <p>Total spending matching your current filters.</p>
         </article>
 
         <article className="summary-card">
           <div className="summary-card-top">
-            <span>Number of Expenses</span>
+            <span>Matching Expenses</span>
             <span className="summary-icon">▤</span>
           </div>
-          <h2>{expenses.length}</h2>
-          <p>Total expenses you have added.</p>
+          <h2>{filteredExpenses.length}</h2>
+          <p>Number of expenses matching your filters.</p>
         </article>
       </div>
 
@@ -282,7 +356,7 @@ export default function Expenses() {
 
       <article className="content-panel" style={{ marginTop: "24px" }}>
         <h2>Recent Expenses</h2>
-        <p>Search and organize your recorded expenses.</p>
+        <p>Search, filter, and organize your recorded expenses.</p>
 
         <div className="expense-filters">
           <label htmlFor="expense-search">
@@ -314,6 +388,28 @@ export default function Expenses() {
               <option value="Entertainment">Entertainment</option>
               <option value="Other">Other</option>
             </select>
+          </label>
+
+          <label htmlFor="start-date">
+            Start date
+            <input
+              id="start-date"
+              type="date"
+              max={endDate || undefined}
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
+          </label>
+
+          <label htmlFor="end-date">
+            End date
+            <input
+              id="end-date"
+              type="date"
+              min={startDate || undefined}
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
           </label>
 
           <label htmlFor="sort-by">
@@ -349,6 +445,16 @@ export default function Expenses() {
           </label>
         </div>
 
+        <div className="expense-form-actions">
+          <button type="button" onClick={clearDateFilters}>
+            Clear Date Filters
+          </button>
+
+          <button type="button" onClick={exportExpensesToCSV}>
+            Export Filtered CSV
+          </button>
+        </div>
+
         <p>
           Showing {filteredExpenses.length} of {expenses.length} expenses.
         </p>
@@ -368,7 +474,9 @@ export default function Expenses() {
                   </p>
                 </div>
 
-                <strong>RWF {expense.amount.toLocaleString()}</strong>
+                <strong>
+                  RWF {Number(expense.amount).toLocaleString()}
+                </strong>
 
                 <div className="expense-item-actions">
                   <button

@@ -1,4 +1,3 @@
-
 import { useSelector } from "react-redux";
 import type { RootState } from "../store/store";
 
@@ -15,6 +14,7 @@ export default function Reports() {
     const date = new Date(expense.date);
 
     return (
+      !Number.isNaN(date.getTime()) &&
       date.getMonth() === currentMonth &&
       date.getFullYear() === currentYear
     );
@@ -39,6 +39,20 @@ export default function Reports() {
     0
   );
 
+  const expenseCount = monthlyExpenses.length;
+
+  const averageExpense =
+    expenseCount > 0 ? totalSpent / expenseCount : 0;
+
+  const topCategory = categories.length > 0 ? categories[0] : null;
+
+  const highestExpense =
+    monthlyExpenses.length > 0
+      ? monthlyExpenses.reduce((highest, item) =>
+          item.amount > highest.amount ? item : highest
+        )
+      : null;
+
   const money = (amount: number) =>
     new Intl.NumberFormat("en-RW", {
       style: "currency",
@@ -54,7 +68,33 @@ export default function Reports() {
       <div className="report-summary">
         <h2>Total monthly spending</h2>
         <p className="report-total">{money(totalSpent)}</p>
-        <p>{monthlyExpenses.length} expenses recorded this month</p>
+        <p>{expenseCount} expenses recorded this month</p>
+      </div>
+
+      <div className="report-stats">
+        <div className="report-card">
+          <h3>Number of Expenses</h3>
+          <p className="report-total">{expenseCount}</p>
+          <p>Transactions this month</p>
+        </div>
+
+        <div className="report-card">
+          <h3>Average Expense</h3>
+          <p className="report-total">{money(averageExpense)}</p>
+          <p>Average per transaction</p>
+        </div>
+
+        <div className="report-card">
+          <h3>Top Spending Category</h3>
+          <p className="report-total">
+            {topCategory ? topCategory[0] : "N/A"}
+          </p>
+          <p>
+            {topCategory
+              ? money(topCategory[1])
+              : "No spending recorded"}
+          </p>
+        </div>
       </div>
 
       <div className="report-card">
@@ -92,26 +132,18 @@ export default function Reports() {
       </div>
 
       <div className="report-card">
-        <h2>Highest expense</h2>
+        <h2>Highest Expense</h2>
 
-        {monthlyExpenses.length === 0 ? (
-          <p>No expenses recorded this month yet.</p>
+        {highestExpense ? (
+          <>
+            <p>
+              <strong>{highestExpense.title}</strong>
+            </p>
+            <p>{money(highestExpense.amount)}</p>
+            <p>Category: {highestExpense.category}</p>
+          </>
         ) : (
-          (() => {
-            const highestExpense = monthlyExpenses.reduce((highest, item) =>
-              item.amount > highest.amount ? item : highest
-            );
-
-            return (
-              <>
-                <p>
-                  <strong>{highestExpense.title}</strong>
-                </p>
-                <p>{money(highestExpense.amount)}</p>
-                <p>Category: {highestExpense.category}</p>
-              </>
-            );
-          })()
+          <p>No expenses recorded this month yet.</p>
         )}
       </div>
     </section>
