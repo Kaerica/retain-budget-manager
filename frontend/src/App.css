@@ -789,3 +789,59 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* Reports date filters */
+.report-date-filters {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.report-date-filters > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.report-date-filters label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.report-date-filters input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.report-date-filters button {
+  min-height: 42px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.report-date-error {
+  margin-top: 12px;
+  color: #b91c1c;
+}
+
+@media (max-width: 600px) {
+  .report-date-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .report-date-filters > div {
+    width: 100%;
+  }
+}
