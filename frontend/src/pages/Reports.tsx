@@ -1,5 +1,15 @@
+
 import { useState } from "react";
 import { useSelector } from "react-redux";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import type { RootState } from "../store/store";
 
 export default function Reports() {
@@ -18,7 +28,6 @@ export default function Reports() {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-
     return `${year}-${month}-${day}`;
   };
 
@@ -30,9 +39,7 @@ export default function Reports() {
   const filteredExpenses = expenses.filter((expense) => {
     const date = new Date(expense.date);
 
-    if (Number.isNaN(date.getTime())) {
-      return false;
-    }
+    if (Number.isNaN(date.getTime())) return false;
 
     const expenseDate = formatDate(date);
 
@@ -44,13 +51,16 @@ export default function Reports() {
   >((totals, expense) => {
     totals[expense.category] =
       (totals[expense.category] || 0) + expense.amount;
-
     return totals;
   }, {});
 
-  const categories = Object.entries(categoryTotals).sort(
-    (a, b) => b[1] - a[1]
-  );
+  const categories = Object.entries(categoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: 0,
+    }));
 
   const totalSpent = filteredExpenses.reduce(
     (total, expense) => total + expense.amount,
@@ -58,7 +68,6 @@ export default function Reports() {
   );
 
   const expenseCount = filteredExpenses.length;
-
   const averageExpense =
     expenseCount > 0 ? totalSpent / expenseCount : 0;
 
@@ -95,8 +104,8 @@ export default function Reports() {
       ["Total Spending (RWF)", totalSpent],
       ["Number of Expenses", expenseCount],
       ["Average Expense (RWF)", averageExpense],
-      ["Top Spending Category", topCategory?.[0] ?? "N/A"],
-      ["Top Category Spending (RWF)", topCategory?.[1] ?? 0],
+      ["Top Spending Category", topCategory?.category ?? "N/A"],
+      ["Top Category Spending (RWF)", topCategory?.amount ?? 0],
       [],
       ["Expense Details"],
       ["Date", "Title", "Category", "Amount (RWF)"],
@@ -109,11 +118,11 @@ export default function Reports() {
       [],
       ["Spending by Category"],
       ["Category", "Amount (RWF)", "Percentage"],
-      ...categories.map(([category, amount]) => [
-        category,
-        amount,
+      ...categories.map((item) => [
+        item.category,
+        item.amount,
         totalSpent > 0
-          ? `${((amount / totalSpent) * 100).toFixed(1)}%`
+          ? `${((item.amount / totalSpent) * 100).toFixed(1)}%`
           : "0%",
       ]),
     ];
@@ -131,11 +140,9 @@ export default function Reports() {
 
     link.href = url;
     link.download = `retain-report-${startDate}-to-${endDate}.csv`;
-
     document.body.appendChild(link);
     link.click();
     link.remove();
-
     URL.revokeObjectURL(url);
   };
 
@@ -155,9 +162,7 @@ export default function Reports() {
               type="date"
               value={startDate}
               max={endDate || undefined}
-              onChange={(event) =>
-                setStartDate(event.target.value)
-              }
+              onChange={(event) => setStartDate(event.target.value)}
             />
           </div>
 
@@ -168,9 +173,7 @@ export default function Reports() {
               type="date"
               value={endDate}
               min={startDate || undefined}
-              onChange={(event) =>
-                setEndDate(event.target.value)
-              }
+              onChange={(event) => setEndDate(event.target.value)}
             />
           </div>
 
@@ -211,48 +214,91 @@ export default function Reports() {
 
             <div className="report-card">
               <h3>Average Expense</h3>
-              <p className="report-total">
-                {money(averageExpense)}
-              </p>
+              <p className="report-total">{money(averageExpense)}</p>
               <p>Average per transaction</p>
             </div>
 
             <div className="report-card">
               <h3>Top Spending Category</h3>
               <p className="report-total">
-                {topCategory ? topCategory[0] : "N/A"}
+                {topCategory ? topCategory.category : "N/A"}
               </p>
               <p>
                 {topCategory
-                  ? money(topCategory[1])
+                  ? money(topCategory.amount)
                   : "No spending recorded"}
               </p>
             </div>
           </div>
 
           <div className="report-card">
+            <h2>Spending Chart by Category</h2>
+
+            {categories.length === 0 ? (
+              <p>No expenses available to display in the chart.</p>
+            ) : (
+              <div className="report-chart">
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart
+                    data={categories}
+                    margin={{
+                      top: 10,
+                      right: 20,
+                      left: 10,
+                      bottom: 10,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="category"
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis
+                      tickFormatter={(value: number) =>
+                        new Intl.NumberFormat("en-RW", {
+                          notation: "compact",
+                          maximumFractionDigits: 1,
+                        }).format(value)
+                      }
+                    />
+                    <Tooltip
+                      formatter={(value) => [
+                        money(Number(value)),
+                        "Amount spent",
+                      ]}
+                    />
+                    <Bar
+                      dataKey="amount"
+                      name="Amount spent"
+                      fill="#d4a017"
+                      radius={[6, 6, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="report-card">
             <h2>Spending by Category</h2>
 
             {categories.length === 0 ? (
-              <p>
-                No expenses recorded during this period.
-                Try selecting different dates or add an expense.
-              </p>
+              <p>No expenses recorded during this period.</p>
             ) : (
-              categories.map(([category, amount]) => {
+              categories.map((item) => {
                 const percentage =
                   totalSpent > 0
-                    ? (amount / totalSpent) * 100
+                    ? (item.amount / totalSpent) * 100
                     : 0;
 
                 return (
                   <div
                     className="category-report"
-                    key={category}
+                    key={item.category}
                   >
                     <div className="category-report-heading">
-                      <span>{category}</span>
-                      <strong>{money(amount)}</strong>
+                      <span>{item.category}</span>
+                      <strong>{money(item.amount)}</strong>
                     </div>
 
                     <div className="report-progress">
@@ -274,9 +320,7 @@ export default function Reports() {
 
             {highestExpense ? (
               <>
-                <p>
-                  <strong>{highestExpense.title}</strong>
-                </p>
+                <p><strong>{highestExpense.title}</strong></p>
                 <p>{money(highestExpense.amount)}</p>
                 <p>Category: {highestExpense.category}</p>
                 <p>
