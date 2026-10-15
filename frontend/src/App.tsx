@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Link,
@@ -26,6 +27,7 @@ import { getBudgets } from "./services/budgetService";
 import Expenses from "./pages/Expenses";
 import Budgets from "./pages/Budgets";
 import Reports from "./pages/Reports";
+import Settings from "./pages/Settings";
 import Signup from "./pages/Signup";
 import Signin from "./pages/Signin";
 import { useAuth } from "./context/AuthContext";
@@ -151,7 +153,6 @@ function ProtectedLayout() {
   const formatRWF = (amount: number) =>
     `RWF ${amount.toLocaleString("en-US")}`;
 
-  // Monthly spending totals for the current year.
   const monthlySpendingTrend = Array.from(
     { length: 12 },
     (_, monthIndex) => {
@@ -519,7 +520,6 @@ function ProtectedLayout() {
               </article>
             </div>
 
-            {/* Monthly Spending Trend */}
             <article
               className="content-card dashboard-trend"
               style={{ marginTop: "24px" }}
@@ -555,14 +555,12 @@ function ProtectedLayout() {
                       vertical={false}
                       stroke="#e5e7eb"
                     />
-
                     <XAxis
                       dataKey="month"
                       tick={{ fontSize: 12 }}
                       axisLine={false}
                       tickLine={false}
                     />
-
                     <YAxis
                       tick={{ fontSize: 11 }}
                       axisLine={false}
@@ -572,7 +570,6 @@ function ProtectedLayout() {
                         value.toLocaleString("en-US")
                       }
                     />
-
                     <Tooltip
                       formatter={(value) => [
                         formatRWF(Number(value ?? 0)),
@@ -580,7 +577,6 @@ function ProtectedLayout() {
                       ]}
                       labelFormatter={(label) => `Month: ${label}`}
                     />
-
                     <Bar
                       dataKey="amount"
                       name="Total spent"
@@ -598,7 +594,6 @@ function ProtectedLayout() {
               </p>
             </article>
 
-            {/* Spending by Category Chart */}
             <article
               className="content-card dashboard-category-chart"
               style={{ marginTop: "24px" }}
@@ -659,7 +654,6 @@ function ProtectedLayout() {
                             "Amount spent",
                           ]}
                         />
-
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
@@ -698,7 +692,6 @@ function ProtectedLayout() {
                                 ],
                             }}
                           />
-
                           <span>{item.category}</span>
                         </div>
 
@@ -718,7 +711,6 @@ function ProtectedLayout() {
               )}
             </article>
 
-            {/* Recent Expenses */}
             <article
               className="content-card recent-expenses"
               style={{ marginTop: "24px" }}
@@ -809,21 +801,7 @@ function ProtectedLayout() {
 
         {activePage === "Settings" && (
           <section className="page-content">
-            <h1>Settings</h1>
-            <p>Manage your Retain account preferences.</p>
-
-            <article className="content-card">
-              <h3>Account Settings</h3>
-              <p>
-                <strong>Name:</strong> {user?.name}
-              </p>
-              <p>
-                <strong>Email:</strong> {user?.email}
-              </p>
-              <p>
-                <strong>Role:</strong> {user?.role}
-              </p>
-            </article>
+            <Settings />
           </section>
         )}
       </main>
