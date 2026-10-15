@@ -15,6 +15,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
 
 import type { RootState } from "./store/store";
@@ -33,6 +37,17 @@ type Page =
   | "Budgets"
   | "Reports"
   | "Settings";
+
+const CHART_COLORS = [
+  "#d4a72c",
+  "#243b64",
+  "#16a34a",
+  "#dc2626",
+  "#7c3aed",
+  "#0891b2",
+  "#ea580c",
+  "#64748b",
+];
 
 function ProtectedLayout() {
   const { user, isAuthenticated, signout } = useAuth();
@@ -117,6 +132,15 @@ function ProtectedLayout() {
     return totals;
   }, {});
 
+  const categoryChartData = Object.entries(spendingByCategory)
+    .map(([category, amount]) => ({
+      category,
+      amount,
+      percentage:
+        totalSpent > 0 ? (amount / totalSpent) * 100 : 0,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
   const highestExpense = monthlyExpenses.reduce(
     (highest, expense) =>
       Math.max(highest, Number(expense.amount || 0)),
@@ -126,7 +150,7 @@ function ProtectedLayout() {
   const formatRWF = (amount: number) =>
     `RWF ${amount.toLocaleString("en-US")}`;
 
-  // Calculate spending for every month of the current year.
+  // Monthly spending totals for the current year.
   const monthlySpendingTrend = Array.from(
     { length: 12 },
     (_, monthIndex) => {
@@ -177,10 +201,13 @@ function ProtectedLayout() {
           : "Within budget";
 
   const recentExpenses = [...expenses]
-    .filter((expense) => !Number.isNaN(new Date(expense.date).getTime()))
+    .filter(
+      (expense) => !Number.isNaN(new Date(expense.date).getTime())
+    )
     .sort(
       (a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
+        new Date(b.date).getTime() -
+        new Date(a.date).getTime()
     )
     .slice(0, 5);
 
@@ -491,6 +518,7 @@ function ProtectedLayout() {
               </article>
             </div>
 
+            {/* Monthly Spending Trend */}
             <article
               className="content-card dashboard-trend"
               style={{ marginTop: "24px" }}
@@ -569,6 +597,127 @@ function ProtectedLayout() {
               </p>
             </article>
 
+            {/* NEW: Spending by Category Chart */}
+            <article
+              className="content-card dashboard-category-chart"
+              style={{ marginTop: "24px" }}
+            >
+              <div className="section-heading">
+                <div>
+                  <h3>Spending by Category</h3>
+                  <p>
+                    See how this month's expenses are distributed.
+                  </p>
+                </div>
+              </div>
+
+              {categoryChartData.length === 0 ? (
+                <p className="muted-text" style={{ marginTop: "20px" }}>
+                  No expenses recorded for this month yet. Add expenses
+                  to see your category breakdown.
+                </p>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "320px",
+                      marginTop: "16px",
+                    }}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoryChartData}
+                          dataKey="amount"
+                          nameKey="category"
+                          cx="50%"
+                          cy="45%"
+                          outerRadius={100}
+                          innerRadius={55}
+                          paddingAngle={3}
+                          label={({ percent }) =>
+                            `${((percent ?? 0) * 100).toFixed(0)}%`
+                          }
+                        >
+                          {categoryChartData.map((entry, index) => (
+                            <Cell
+                              key={entry.category}
+                              fill={
+                                CHART_COLORS[
+                                  index % CHART_COLORS.length
+                                ]
+                              }
+                            />
+                          ))}
+                        </Pie>
+
+                        <Tooltip
+                          formatter={(value) => [
+                            formatRWF(Number(value ?? 0)),
+                            "Amount spent",
+                          ]}
+                        />
+
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div style={{ marginTop: "12px" }}>
+                    {categoryChartData.map((item, index) => (
+                      <div
+                        key={item.category}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          padding: "12px 0",
+                          borderBottom: "1px solid #eee",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                          }}
+                        >
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              width: "12px",
+                              height: "12px",
+                              minWidth: "12px",
+                              borderRadius: "3px",
+                              backgroundColor:
+                                CHART_COLORS[
+                                  index % CHART_COLORS.length
+                                ],
+                            }}
+                          />
+
+                          <span>{item.category}</span>
+                        </div>
+
+                        <div style={{ textAlign: "right" }}>
+                          <strong>{formatRWF(item.amount)}</strong>
+                          <p
+                            className="muted-text"
+                            style={{ margin: "4px 0 0" }}
+                          >
+                            {item.percentage.toFixed(1)}%
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </article>
+
+            {/* Recent Expenses */}
             <article
               className="content-card recent-expenses"
               style={{ marginTop: "24px" }}
