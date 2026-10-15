@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Link,
@@ -8,6 +7,15 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useSelector } from "react-redux";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 import type { RootState } from "./store/store";
 import { getBudgets } from "./services/budgetService";
@@ -115,6 +123,40 @@ function ProtectedLayout() {
     0
   );
 
+  const formatRWF = (amount: number) =>
+    `RWF ${amount.toLocaleString("en-US")}`;
+
+  // Calculate spending for every month of the current year.
+  const monthlySpendingTrend = Array.from(
+    { length: 12 },
+    (_, monthIndex) => {
+      const amount = expenses
+        .filter((expense) => {
+          const expenseDate = new Date(expense.date);
+
+          return (
+            !Number.isNaN(expenseDate.getTime()) &&
+            expenseDate.getMonth() === monthIndex &&
+            expenseDate.getFullYear() === currentYear
+          );
+        })
+        .reduce(
+          (total, expense) =>
+            total + Number(expense.amount || 0),
+          0
+        );
+
+      return {
+        month: new Date(
+          currentYear,
+          monthIndex,
+          1
+        ).toLocaleString("en-US", { month: "short" }),
+        amount,
+      };
+    }
+  );
+
   const remainingBudget = monthlyBudget - totalSpent;
 
   const budgetProgress =
@@ -133,9 +175,6 @@ function ProtectedLayout() {
         : budgetUsagePercentage >= 80
           ? "Approaching limit"
           : "Within budget";
-
-  const formatRWF = (amount: number) =>
-    `RWF ${amount.toLocaleString("en-US")}`;
 
   const recentExpenses = [...expenses]
     .filter((expense) => !Number.isNaN(new Date(expense.date).getTime()))
@@ -453,6 +492,84 @@ function ProtectedLayout() {
             </div>
 
             <article
+              className="content-card dashboard-trend"
+              style={{ marginTop: "24px" }}
+            >
+              <div className="section-heading">
+                <div>
+                  <h3>Monthly Spending Trend</h3>
+                  <p>
+                    Compare your spending across {currentYear}.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  width: "100%",
+                  height: "300px",
+                  marginTop: "20px",
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={monthlySpendingTrend}
+                    margin={{
+                      top: 10,
+                      right: 12,
+                      left: 12,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#e5e7eb"
+                    />
+
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={75}
+                      tickFormatter={(value: number) =>
+                        value.toLocaleString("en-US")
+                      }
+                    />
+
+                    <Tooltip
+                      formatter={(value) => [
+                        formatRWF(Number(value ?? 0)),
+                        "Total spent",
+                      ]}
+                      labelFormatter={(label) => `Month: ${label}`}
+                    />
+
+                    <Bar
+                      dataKey="amount"
+                      name="Total spent"
+                      fill="#d4a72c"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={42}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <p className="muted-text">
+                Months without recorded expenses appear as zero.
+                Only expenses dated in {currentYear} are included.
+              </p>
+            </article>
+
+            <article
               className="content-card recent-expenses"
               style={{ marginTop: "24px" }}
             >
@@ -501,6 +618,7 @@ function ProtectedLayout() {
                               ? expense.title
                               : expense.category || "Expense"}
                         </strong>
+
                         <p
                           className="muted-text"
                           style={{ margin: "5px 0 0" }}
