@@ -25,6 +25,7 @@ import type { RootState } from "./store/store";
 import { getBudgets } from "./services/budgetService";
 import Expenses from "./pages/Expenses";
 import Budgets from "./pages/Budgets";
+import Reports from "./pages/Reports";
 import Signup from "./pages/Signup";
 import Signin from "./pages/Signin";
 import { useAuth } from "./context/AuthContext";
@@ -597,7 +598,7 @@ function ProtectedLayout() {
               </p>
             </article>
 
-            {/* NEW: Spending by Category Chart */}
+            {/* Spending by Category Chart */}
             <article
               className="content-card dashboard-category-chart"
               style={{ marginTop: "24px" }}
@@ -802,127 +803,7 @@ function ProtectedLayout() {
 
         {activePage === "Reports" && (
           <section className="page-content">
-            <h1>Reports</h1>
-            <p>
-              Review your spending patterns and financial progress.
-            </p>
-
-            <div className="summary-grid">
-              <article className="summary-card">
-                <div className="card-heading">
-                  <span>Total Spent This Month</span>
-                  <span className="card-icon blue">↗</span>
-                </div>
-                <h2>{formatRWF(totalSpent)}</h2>
-                <p className="muted-text">
-                  All recorded expenses this month
-                </p>
-              </article>
-
-              <article className="summary-card">
-                <div className="card-heading">
-                  <span>Monthly Budget</span>
-                  <span className="card-icon gold">◷</span>
-                </div>
-                <h2>
-                  {budgetLoading
-                    ? "Loading..."
-                    : formatRWF(monthlyBudget)}
-                </h2>
-                <p className="muted-text">
-                  Your saved monthly budget
-                </p>
-              </article>
-
-              <article className="summary-card">
-                <div className="card-heading">
-                  <span>Remaining Budget</span>
-                  <span className="card-icon green">✓</span>
-                </div>
-                <h2>{formatRWF(remainingBudget)}</h2>
-                <p className="muted-text">
-                  Budget minus monthly expenses
-                </p>
-              </article>
-            </div>
-
-            <article
-              className="content-card"
-              style={{ marginTop: "24px" }}
-            >
-              <h3>Highest Expense This Month</h3>
-              <h2>{formatRWF(highestExpense)}</h2>
-              <p>
-                Largest single expense recorded this month.
-              </p>
-            </article>
-
-            <article
-              className="content-card"
-              style={{ marginTop: "24px" }}
-            >
-              <h3>Spending by Category</h3>
-              <p>
-                See how much you have spent in each category this month.
-              </p>
-
-              {Object.keys(spendingByCategory).length === 0 ? (
-                <p>No expenses recorded for this month yet.</p>
-              ) : (
-                Object.entries(spendingByCategory)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([category, amount]) => {
-                    const percentage =
-                      totalSpent > 0
-                        ? (amount / totalSpent) * 100
-                        : 0;
-
-                    return (
-                      <div
-                        key={category}
-                        style={{
-                          padding: "14px 0",
-                          borderBottom: "1px solid #eee",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: "16px",
-                            marginBottom: "8px",
-                          }}
-                        >
-                          <strong>{category}</strong>
-                          <strong>{formatRWF(amount)}</strong>
-                        </div>
-
-                        <div
-                          style={{
-                            height: "8px",
-                            background: "#eee",
-                            borderRadius: "8px",
-                            overflow: "hidden",
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: "100%",
-                              width: `${percentage}%`,
-                              background: "#d4a72c",
-                              borderRadius: "8px",
-                            }}
-                          />
-                        </div>
-
-                        <p className="muted-text">
-                          {percentage.toFixed(1)}% of monthly spending
-                        </p>
-                      </div>
-                    );
-                  })
-              )}
-            </article>
+            <Reports />
           </section>
         )}
 
