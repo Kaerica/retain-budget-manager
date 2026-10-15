@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../store/store";
@@ -37,10 +36,7 @@ export default function Reports() {
 
     const expenseDate = formatDate(date);
 
-    return (
-      expenseDate >= startDate &&
-      expenseDate <= endDate
-    );
+    return expenseDate >= startDate && expenseDate <= endDate;
   });
 
   const categoryTotals = filteredExpenses.reduce<
@@ -85,6 +81,63 @@ export default function Reports() {
 
   const invalidDateRange =
     Boolean(startDate && endDate && startDate > endDate);
+
+  const escapeCsv = (value: string | number) =>
+    `"${String(value).replace(/"/g, '""')}"`;
+
+  const exportReport = () => {
+    const rows: (string | number)[][] = [
+      ["Retain Expense Report"],
+      ["Start Date", startDate],
+      ["End Date", endDate],
+      [],
+      ["Summary"],
+      ["Total Spending (RWF)", totalSpent],
+      ["Number of Expenses", expenseCount],
+      ["Average Expense (RWF)", averageExpense],
+      ["Top Spending Category", topCategory?.[0] ?? "N/A"],
+      ["Top Category Spending (RWF)", topCategory?.[1] ?? 0],
+      [],
+      ["Expense Details"],
+      ["Date", "Title", "Category", "Amount (RWF)"],
+      ...filteredExpenses.map((expense) => [
+        formatDate(new Date(expense.date)),
+        expense.title,
+        expense.category,
+        expense.amount,
+      ]),
+      [],
+      ["Spending by Category"],
+      ["Category", "Amount (RWF)", "Percentage"],
+      ...categories.map(([category, amount]) => [
+        category,
+        amount,
+        totalSpent > 0
+          ? `${((amount / totalSpent) * 100).toFixed(1)}%`
+          : "0%",
+      ]),
+    ];
+
+    const csvContent = rows
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\r\n");
+
+    const blob = new Blob(["\uFEFF", csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `retain-report-${startDate}-to-${endDate}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <section className="page">
@@ -209,9 +262,7 @@ export default function Reports() {
                       />
                     </div>
 
-                    <p>
-                      {percentage.toFixed(1)}% of spending
-                    </p>
+                    <p>{percentage.toFixed(1)}% of spending</p>
                   </div>
                 );
               })
@@ -227,18 +278,25 @@ export default function Reports() {
                   <strong>{highestExpense.title}</strong>
                 </p>
                 <p>{money(highestExpense.amount)}</p>
-                <p>
-                  Category: {highestExpense.category}
-                </p>
+                <p>Category: {highestExpense.category}</p>
                 <p>
                   Date: {formatDate(new Date(highestExpense.date))}
                 </p>
               </>
             ) : (
-              <p>
-                No expenses recorded during this period.
-              </p>
+              <p>No expenses recorded during this period.</p>
             )}
+          </div>
+
+          <div className="report-card">
+            <h2>Export Report</h2>
+            <p>
+              Download your summary, expense details, and category
+              breakdown for the selected dates.
+            </p>
+            <button type="button" onClick={exportReport}>
+              Export Report to CSV
+            </button>
           </div>
         </>
       )}
