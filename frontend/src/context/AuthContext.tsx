@@ -26,6 +26,20 @@ interface AuthResponse {
   token: string;
 }
 
+interface ProfileResponse {
+  message?: string;
+  user?: {
+    id: number;
+    username: string;
+    name?: string;
+    email: string;
+  };
+  id?: number;
+  username?: string;
+  name?: string;
+  email?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -36,6 +50,7 @@ interface AuthContextType {
     password: string
   ) => Promise<void>;
   signin: (email: string, password: string) => Promise<void>;
+  updateProfile: (name: string, email: string) => Promise<void>;
   signout: () => void;
 }
 
@@ -47,7 +62,7 @@ const TOKEN_KEY = "retain-token";
 function getSavedSession(): User | null {
   try {
     const saved = localStorage.getItem(SESSION_KEY);
-    return saved ? JSON.parse(saved) as User : null;
+    return saved ? (JSON.parse(saved) as User) : null;
   } catch {
     return null;
   }
@@ -68,6 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  function saveUser(sessionUser: User) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
+    setUser(sessionUser);
+  }
+
   function saveSession(response: AuthResponse) {
     const sessionUser: User = {
       id: response.user.id,
@@ -77,8 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     localStorage.setItem(TOKEN_KEY, response.token);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-    setUser(sessionUser);
+    saveUser(sessionUser);
   }
 
   async function signup(
@@ -107,6 +126,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     saveSession(response.data);
   }
 
+  async function updateProfile(
+    name: string,
+    email: string
+  ): Promise<void> {
+    const response = await api.patch<ProfileResponse>("profile/", {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+    });
+
+    const profile = response.data.user ?? response.data;
+
+    if (
+      typeof profile.id !== "number" ||
+      typeof profile.email !== "string"
+    ) {
+      throw new Error("The server returned an invalid profile.");
+    }
+
+    const updatedUser: User = {
+      id: profile.id,
+      name: profile.name || profile.username || name.trim(),
+      email: profile.email,
+      role: user?.role ?? "user",
+    };
+
+    saveUser(updatedUser);
+  }
+
   function signout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(SESSION_KEY);
@@ -121,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signup,
         signin,
+        updateProfile,
         signout,
       }}
     >
