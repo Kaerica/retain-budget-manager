@@ -8,8 +8,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Expense
-from .serializers import ExpenseSerializer
+from .models import Expense, Budget
+from .serializers import ExpenseSerializer, BudgetSerializer
 from .auth_serializers import SignupSerializer
 
 
@@ -101,15 +101,6 @@ class ExpenseViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-
-from .models import Budget
-from .serializers import BudgetSerializer
-
-
 class BudgetView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -135,5 +126,72 @@ class BudgetView(APIView):
 
         return Response(
             result.data,
-            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+            status=(
+                status.HTTP_201_CREATED
+                if created
+                else status.HTTP_200_OK
+            ),
+        )
+
+
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        return Response(
+            {
+                "id": user.id,
+                "username": user.username,
+                "name": user.first_name or user.username,
+                "email": user.email,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request):
+        user = request.user
+
+        name = request.data.get("name")
+        email = request.data.get("email")
+
+        if not isinstance(name, str) or not isinstance(email, str):
+            return Response(
+                {"detail": "Name and email are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        name = name.strip()
+        email = email.strip().lower()
+
+        if not name or not email:
+            return Response(
+                {"detail": "Name and email cannot be empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if User.objects.filter(email__iexact=email).exclude(
+            id=user.id
+        ).exists():
+            return Response(
+                {"detail": "This email is already in use."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.first_name = name
+        user.email = email
+        user.save(update_fields=["first_name", "email"])
+
+        return Response(
+            {
+                "message": "Profile updated successfully.",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "name": user.first_name,
+                    "email": user.email,
+                },
+            },
+            status=status.HTTP_200_OK,
         )
