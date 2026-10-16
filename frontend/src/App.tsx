@@ -124,6 +124,38 @@ function ProtectedLayout() {
     0
   );
 
+  // Calculate spending from the previous calendar month.
+  const previousMonthDate = new Date(
+    currentYear,
+    currentMonth - 1,
+    1
+  );
+
+  const previousMonth = previousMonthDate.getMonth();
+  const previousMonthYear = previousMonthDate.getFullYear();
+
+  const previousMonthExpenses = expenses.filter((expense) => {
+    const expenseDate = new Date(expense.date);
+
+    return (
+      !Number.isNaN(expenseDate.getTime()) &&
+      expenseDate.getMonth() === previousMonth &&
+      expenseDate.getFullYear() === previousMonthYear
+    );
+  });
+
+  const previousMonthTotal = previousMonthExpenses.reduce(
+    (total, expense) => total + Number(expense.amount || 0),
+    0
+  );
+
+  const spendingDifference = totalSpent - previousMonthTotal;
+
+  const spendingChangePercentage =
+    previousMonthTotal > 0
+      ? (spendingDifference / previousMonthTotal) * 100
+      : null;
+
   const spendingByCategory = monthlyExpenses.reduce<
     Record<string, number>
   >((totals, expense) => {
@@ -150,7 +182,6 @@ function ProtectedLayout() {
     0
   );
 
-  // Use the currency selected in Settings.
   const formatRWF = (amount: number) => formatCurrency(amount);
 
   const monthlySpendingTrend = Array.from(
@@ -376,6 +407,46 @@ function ProtectedLayout() {
                   Largest expense this month
                 </p>
               </article>
+
+              {/* New month-to-month spending comparison card */}
+              <article className="summary-card">
+                <div className="card-heading">
+                  <span>Spending vs Last Month</span>
+                  <span
+                    className={`card-icon ${
+                      spendingDifference > 0 ? "red" : "green"
+                    }`}
+                  >
+                    {spendingDifference > 0
+                      ? "↑"
+                      : spendingDifference < 0
+                        ? "↓"
+                        : "="}
+                  </span>
+                </div>
+
+                <h2>
+                  {spendingChangePercentage === null
+                    ? "N/A"
+                    : `${Math.abs(
+                        spendingChangePercentage
+                      ).toFixed(1)}%`}
+                </h2>
+
+                <p className="muted-text">
+                  {previousMonthTotal === 0
+                    ? "No spending recorded last month for comparison"
+                    : spendingDifference > 0
+                      ? `${formatRWF(
+                          spendingDifference
+                        )} more than last month`
+                      : spendingDifference < 0
+                        ? `${formatRWF(
+                            Math.abs(spendingDifference)
+                          )} less than last month`
+                        : "Same spending as last month"}
+                </p>
+              </article>
             </div>
 
             <div className="dashboard-grid">
@@ -431,7 +502,9 @@ function ProtectedLayout() {
 
                 <p className="progress-caption">
                   {monthlyBudget > 0
-                    ? `${Math.round(budgetUsagePercentage)}% of your saved budget used`
+                    ? `${Math.round(
+                        budgetUsagePercentage
+                      )}% of your saved budget used`
                     : "Create a budget to track your spending progress"}
                 </p>
 
