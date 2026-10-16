@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { RootState } from "../store/store";
+import { formatCurrency, getSavedCurrency } from "../utils/currency";
 
 export default function Reports() {
   const expenses = useSelector(
@@ -36,6 +37,8 @@ export default function Reports() {
   );
   const [endDate, setEndDate] = useState(formatDate(today));
 
+  const currency = getSavedCurrency();
+
   const filteredExpenses = expenses.filter((expense) => {
     const date = new Date(expense.date);
 
@@ -50,7 +53,7 @@ export default function Reports() {
     Record<string, number>
   >((totals, expense) => {
     totals[expense.category] =
-      (totals[expense.category] || 0) + expense.amount;
+      (totals[expense.category] || 0) + Number(expense.amount);
     return totals;
   }, {});
 
@@ -63,7 +66,7 @@ export default function Reports() {
     }));
 
   const totalSpent = filteredExpenses.reduce(
-    (total, expense) => total + expense.amount,
+    (total, expense) => total + Number(expense.amount),
     0
   );
 
@@ -81,13 +84,6 @@ export default function Reports() {
         )
       : null;
 
-  const money = (amount: number) =>
-    new Intl.NumberFormat("en-RW", {
-      style: "currency",
-      currency: "RWF",
-      maximumFractionDigits: 0,
-    }).format(amount);
-
   const invalidDateRange =
     Boolean(startDate && endDate && startDate > endDate);
 
@@ -97,27 +93,28 @@ export default function Reports() {
   const exportReport = () => {
     const rows: (string | number)[][] = [
       ["Retain Expense Report"],
+      ["Currency", currency],
       ["Start Date", startDate],
       ["End Date", endDate],
       [],
       ["Summary"],
-      ["Total Spending (RWF)", totalSpent],
+      [`Total Spending (${currency})`, totalSpent],
       ["Number of Expenses", expenseCount],
-      ["Average Expense (RWF)", averageExpense],
+      [`Average Expense (${currency})`, averageExpense],
       ["Top Spending Category", topCategory?.category ?? "N/A"],
-      ["Top Category Spending (RWF)", topCategory?.amount ?? 0],
+      [`Top Category Spending (${currency})`, topCategory?.amount ?? 0],
       [],
       ["Expense Details"],
-      ["Date", "Title", "Category", "Amount (RWF)"],
+      ["Date", "Title", "Category", `Amount (${currency})`],
       ...filteredExpenses.map((expense) => [
         formatDate(new Date(expense.date)),
         expense.title,
         expense.category,
-        expense.amount,
+        Number(expense.amount),
       ]),
       [],
       ["Spending by Category"],
-      ["Category", "Amount (RWF)", "Percentage"],
+      ["Category", `Amount (${currency})`, "Percentage"],
       ...categories.map((item) => [
         item.category,
         item.amount,
@@ -199,7 +196,7 @@ export default function Reports() {
         <>
           <div className="report-summary">
             <h2>Total Spending for Selected Period</h2>
-            <p className="report-total">{money(totalSpent)}</p>
+            <p className="report-total">{formatCurrency(totalSpent)}</p>
             <p>
               {expenseCount} expenses recorded during this period
             </p>
@@ -214,7 +211,9 @@ export default function Reports() {
 
             <div className="report-card">
               <h3>Average Expense</h3>
-              <p className="report-total">{money(averageExpense)}</p>
+              <p className="report-total">
+                {formatCurrency(averageExpense)}
+              </p>
               <p>Average per transaction</p>
             </div>
 
@@ -225,7 +224,7 @@ export default function Reports() {
               </p>
               <p>
                 {topCategory
-                  ? money(topCategory.amount)
+                  ? formatCurrency(topCategory.amount)
                   : "No spending recorded"}
               </p>
             </div>
@@ -255,7 +254,7 @@ export default function Reports() {
                     />
                     <YAxis
                       tickFormatter={(value: number) =>
-                        new Intl.NumberFormat("en-RW", {
+                        new Intl.NumberFormat("en", {
                           notation: "compact",
                           maximumFractionDigits: 1,
                         }).format(value)
@@ -263,13 +262,13 @@ export default function Reports() {
                     />
                     <Tooltip
                       formatter={(value) => [
-                        money(Number(value)),
-                        "Amount spent",
+                        formatCurrency(Number(value)),
+                        `Amount spent (${currency})`,
                       ]}
                     />
                     <Bar
                       dataKey="amount"
-                      name="Amount spent"
+                      name={`Amount spent (${currency})`}
                       fill="#d4a017"
                       radius={[6, 6, 0, 0]}
                     />
@@ -298,7 +297,7 @@ export default function Reports() {
                   >
                     <div className="category-report-heading">
                       <span>{item.category}</span>
-                      <strong>{money(item.amount)}</strong>
+                      <strong>{formatCurrency(item.amount)}</strong>
                     </div>
 
                     <div className="report-progress">
@@ -321,7 +320,7 @@ export default function Reports() {
             {highestExpense ? (
               <>
                 <p><strong>{highestExpense.title}</strong></p>
-                <p>{money(highestExpense.amount)}</p>
+                <p>{formatCurrency(Number(highestExpense.amount))}</p>
                 <p>Category: {highestExpense.category}</p>
                 <p>
                   Date: {formatDate(new Date(highestExpense.date))}
