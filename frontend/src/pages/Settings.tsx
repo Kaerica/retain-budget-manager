@@ -13,6 +13,7 @@ export default function Settings() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingCurrency, setSavingCurrency] = useState(false);
 
   useEffect(() => {
     const savedCurrency = localStorage.getItem("retain-currency");
@@ -32,9 +33,18 @@ export default function Settings() {
   }, [user]);
 
   function savePreferences() {
-    localStorage.setItem("retain-currency", currency);
-    setMessage("Currency preference saved successfully.");
+    setSavingCurrency(true);
+    setMessage("");
     setError("");
+
+    try {
+      localStorage.setItem("retain-currency", currency);
+      setMessage(`Currency preference saved successfully: ${currency}.`);
+    } catch {
+      setError("Unable to save your currency preference. Please try again.");
+    } finally {
+      setSavingCurrency(false);
+    }
   }
 
   async function handleProfileSubmit(
@@ -52,7 +62,7 @@ export default function Settings() {
     try {
       setSaving(true);
 
-      await updateProfile(name, email);
+      await updateProfile(name.trim(), email.trim());
 
       setMessage("Your profile has been updated successfully.");
     } catch (err: unknown) {
@@ -148,7 +158,7 @@ export default function Settings() {
 
       <article className="content-card">
         <h3>Currency Preferences</h3>
-        <p>Choose the currency displayed in your preferences.</p>
+        <p>Choose your preferred currency for Retain.</p>
 
         <div className="form-group">
           <label htmlFor="currency">Currency</label>
@@ -165,14 +175,29 @@ export default function Settings() {
           </select>
         </div>
 
-        <button type="button" onClick={savePreferences}>
-          Save Currency
+        <button
+          type="button"
+          onClick={savePreferences}
+          disabled={savingCurrency}
+        >
+          {savingCurrency ? "Saving..." : "Save Currency"}
         </button>
+
+        <p>
+          <strong>Selected currency:</strong> {currency}
+        </p>
+
+        {message.includes("Currency preference") && (
+          <p role="status" className="success-message">
+            {message}
+          </p>
+        )}
       </article>
 
       <article className="content-card">
         <h3>Account Actions</h3>
         <p>Sign out of your Retain account on this device.</p>
+
         <button type="button" onClick={signout}>
           Sign Out
         </button>
