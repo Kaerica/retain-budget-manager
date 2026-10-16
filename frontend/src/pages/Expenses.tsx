@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../store/store";
@@ -16,6 +15,8 @@ import {
   type Expense,
 } from "../store/expenseSlice";
 
+import { formatCurrency, getSavedCurrency } from "../utils/currency";
+
 export default function Expenses() {
   const dispatch = useDispatch<AppDispatch>();
 
@@ -29,6 +30,8 @@ export default function Expenses() {
     error: apiError,
   } = useSelector((state: RootState) => state.expenses);
 
+  const currency = getSavedCurrency();
+
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Food");
   const [amount, setAmount] = useState("");
@@ -39,7 +42,6 @@ export default function Expenses() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Date-range filters
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -198,7 +200,7 @@ export default function Expenses() {
       return;
     }
 
-    const headers = ["Title", "Category", "Amount (RWF)", "Date"];
+    const headers = ["Title", "Category", `Amount (${currency})`, "Date"];
 
     const escapeCSV = (value: unknown) => {
       const text = String(value ?? "");
@@ -253,7 +255,7 @@ export default function Expenses() {
             <span>Filtered Spending Total</span>
             <span className="summary-icon">↗</span>
           </div>
-          <h2>RWF {totalExpenses.toLocaleString()}</h2>
+          <h2>{formatCurrency(totalExpenses)}</h2>
           <p>Total spending matching your current filters.</p>
         </article>
 
@@ -295,7 +297,7 @@ export default function Expenses() {
           </label>
 
           <label htmlFor="expense-amount">
-            Amount (RWF)
+            Amount ({currency})
             <input
               id="expense-amount"
               type="number"
@@ -475,7 +477,7 @@ export default function Expenses() {
                 </div>
 
                 <strong>
-                  RWF {Number(expense.amount).toLocaleString()}
+                  {formatCurrency(Number(expense.amount))}
                 </strong>
 
                 <div className="expense-item-actions">

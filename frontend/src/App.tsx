@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import {
   Link,
@@ -31,6 +30,7 @@ import Settings from "./pages/Settings";
 import Signup from "./pages/Signup";
 import Signin from "./pages/Signin";
 import { useAuth } from "./context/AuthContext";
+import { formatCurrency, getSavedCurrency } from "./utils/currency";
 
 import "./App.css";
 
@@ -150,8 +150,8 @@ function ProtectedLayout() {
     0
   );
 
-  const formatRWF = (amount: number) =>
-    `RWF ${amount.toLocaleString("en-US")}`;
+  // Use the currency selected in Settings.
+  const formatRWF = (amount: number) => formatCurrency(amount);
 
   const monthlySpendingTrend = Array.from(
     { length: 12 },
@@ -295,7 +295,9 @@ function ProtectedLayout() {
           </div>
 
           <div className="topbar-right">
-            <span className="currency-label">Currency: RWF</span>
+            <span className="currency-label">
+              Currency: {getSavedCurrency()}
+            </span>
             <div className="user-avatar">
               {user?.name?.charAt(0).toUpperCase() || "U"}
             </div>

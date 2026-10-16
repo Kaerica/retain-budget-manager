@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../store/store";
 import { getBudgets, saveBudget } from "../services/budgetService";
+import { formatCurrency, getSavedCurrency } from "../utils/currency";
 
 function Budgets() {
   const expenses = useSelector(
@@ -19,6 +20,7 @@ function Budgets() {
   const today = new Date();
   const month = today.getMonth() + 1;
   const year = today.getFullYear();
+  const currency = getSavedCurrency();
 
   useEffect(() => {
     async function loadBudget() {
@@ -65,13 +67,6 @@ function Budgets() {
     budgetAmount > 0
       ? Math.min((monthlyExpenses / budgetAmount) * 100, 100)
       : 0;
-
-  const currency = (value: number) =>
-    new Intl.NumberFormat("en-RW", {
-      style: "currency",
-      currency: "RWF",
-      maximumFractionDigits: 0,
-    }).format(value);
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,7 +194,7 @@ function Budgets() {
       >
         <div style={cardStyle}>
           <p style={{ color: "#64748b", marginTop: 0 }}>Monthly budget</p>
-          <h2>{currency(budgetAmount)}</h2>
+          <h2>{formatCurrency(budgetAmount)}</h2>
           <p style={{ color: "#64748b", marginBottom: 0 }}>
             Your planned spending limit
           </p>
@@ -208,7 +203,7 @@ function Budgets() {
         <div style={cardStyle}>
           <p style={{ color: "#64748b", marginTop: 0 }}>Money spent</p>
           <h2 style={{ color: "#b45309" }}>
-            {currency(monthlyExpenses)}
+            {formatCurrency(monthlyExpenses)}
           </h2>
           <p style={{ color: "#64748b", marginBottom: 0 }}>
             Expenses recorded this month
@@ -218,7 +213,7 @@ function Budgets() {
         <div style={cardStyle}>
           <p style={{ color: "#64748b", marginTop: 0 }}>Money remaining</p>
           <h2 style={{ color: remaining < 0 ? "#dc2626" : "#047857" }}>
-            {currency(remaining)}
+            {formatCurrency(remaining)}
           </h2>
           <p style={{ color: "#64748b", marginBottom: 0 }}>
             {remaining < 0
@@ -244,7 +239,7 @@ function Budgets() {
               marginBottom: "8px",
             }}
           >
-            Monthly budget amount (RWF)
+            Monthly budget amount ({currency})
           </label>
 
           <input
@@ -308,7 +303,7 @@ function Budgets() {
           }}
         >
           <span>{percentage.toFixed(1)}% of budget used</span>
-          <span>{currency(monthlyExpenses)} spent</span>
+          <span>{formatCurrency(monthlyExpenses)} spent</span>
         </div>
 
         <div
