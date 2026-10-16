@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
@@ -61,9 +60,7 @@ export default function Settings() {
 
     try {
       setSaving(true);
-
       await updateProfile(name.trim(), email.trim());
-
       setMessage("Your profile has been updated successfully.");
     } catch (err: unknown) {
       const apiError = err as {
@@ -158,7 +155,7 @@ export default function Settings() {
 
       <article className="content-card">
         <h3>Currency Preferences</h3>
-        <p>Choose your preferred currency for Retain.</p>
+        <p>Choose your preferred currency display in Retain.</p>
 
         <div className="form-group">
           <label htmlFor="currency">Currency</label>
@@ -185,6 +182,12 @@ export default function Settings() {
 
         <p>
           <strong>Selected currency:</strong> {currency}
+        </p>
+
+        <p className="currency-notice">
+          <strong>Important:</strong> This setting changes how amounts are
+          displayed. It does not convert RWF amounts into USD or EUR using
+          exchange rates. Your financial records remain unchanged.
         </p>
 
         {message.includes("Currency preference") && (
