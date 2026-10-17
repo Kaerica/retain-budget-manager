@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import {
   Link,
@@ -41,6 +42,8 @@ type Page =
   | "Reports"
   | "Settings";
 
+type DashboardPeriod = "month" | "year";
+
 const CHART_COLORS = [
   "#d4a72c",
   "#243b64",
@@ -59,13 +62,16 @@ function ProtectedLayout() {
   const [activePage, setActivePage] = useState<Page>("Dashboard");
   const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [budgetLoading, setBudgetLoading] = useState(true);
+  const [dashboardPeriod, setDashboardPeriod] =
+    useState<DashboardPeriod>("month");
 
   const expenses = useSelector(
     (state: RootState) => state.expenses.expenses
   );
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
 
   useEffect(() => {
     let cancelled = false;
@@ -109,22 +115,33 @@ function ProtectedLayout() {
     };
   }, [activePage, isAuthenticated, currentMonth, currentYear]);
 
+  const isValidExpenseDate = (date: string | Date) => {
+    return !Number.isNaN(new Date(date).getTime());
+  };
+
+  const getExpenseAmount = (amount: number | string) => {
+    const parsedAmount = Number(amount);
+    return Number.isFinite(parsedAmount) ? parsedAmount : 0;
+  };
+
+  // Spending for the current month.
   const monthlyExpenses = expenses.filter((expense) => {
     const expenseDate = new Date(expense.date);
 
     return (
-      !Number.isNaN(expenseDate.getTime()) &&
+      isValidExpenseDate(expense.date) &&
       expenseDate.getMonth() === currentMonth &&
       expenseDate.getFullYear() === currentYear
     );
   });
 
-  const totalSpent = monthlyExpenses.reduce(
-    (total, expense) => total + Number(expense.amount || 0),
+  const monthlyTotalSpent = monthlyExpenses.reduce(
+    (total, expense) =>
+      total + getExpenseAmount(expense.amount),
     0
   );
 
-  // Calculate spending from the previous calendar month.
+  // Spending for the previous calendar month.
   const previousMonthDate = new Date(
     currentYear,
     currentMonth - 1,
@@ -138,31 +155,56 @@ function ProtectedLayout() {
     const expenseDate = new Date(expense.date);
 
     return (
-      !Number.isNaN(expenseDate.getTime()) &&
+      isValidExpenseDate(expense.date) &&
       expenseDate.getMonth() === previousMonth &&
       expenseDate.getFullYear() === previousMonthYear
     );
   });
 
   const previousMonthTotal = previousMonthExpenses.reduce(
-    (total, expense) => total + Number(expense.amount || 0),
+    (total, expense) =>
+      total + getExpenseAmount(expense.amount),
     0
   );
 
-  const spendingDifference = totalSpent - previousMonthTotal;
+  const spendingDifference =
+    monthlyTotalSpent - previousMonthTotal;
 
   const spendingChangePercentage =
     previousMonthTotal > 0
       ? (spendingDifference / previousMonthTotal) * 100
       : null;
 
-  const spendingByCategory = monthlyExpenses.reduce<
+  // All expenses from the current calendar year.
+  const yearlyExpenses = expenses.filter((expense) => {
+    const expenseDate = new Date(expense.date);
+
+    return (
+      isValidExpenseDate(expense.date) &&
+      expenseDate.getFullYear() === currentYear
+    );
+  });
+
+  // The dashboard filter changes the spending summaries and category chart.
+  const displayedExpenses =
+    dashboardPeriod === "month"
+      ? monthlyExpenses
+      : yearlyExpenses;
+
+  const totalSpent = displayedExpenses.reduce(
+    (total, expense) =>
+      total + getExpenseAmount(expense.amount),
+    0
+  );
+
+  const spendingByCategory = displayedExpenses.reduce<
     Record<string, number>
   >((totals, expense) => {
     const category = expense.category || "Other";
 
     totals[category] =
-      (totals[category] || 0) + Number(expense.amount || 0);
+      (totals[category] || 0) +
+      getExpenseAmount(expense.amount);
 
     return totals;
   }, {});
@@ -171,19 +213,19 @@ function ProtectedLayout() {
     .map(([category, amount]) => ({
       category,
       amount,
-      percentage:
-        totalSpent > 0 ? (amount / totalSpent) * 100 : 0,
+      percentage: totalSpent > 0 ? (amount / totalSpent) * 100 : 0,
     }))
     .sort((a, b) => b.amount - a.amount);
 
-  const highestExpense = monthlyExpenses.reduce(
+  const highestExpense = displayedExpenses.reduce(
     (highest, expense) =>
-      Math.max(highest, Number(expense.amount || 0)),
+      Math.max(highest, getExpenseAmount(expense.amount)),
     0
   );
 
   const formatRWF = (amount: number) => formatCurrency(amount);
 
+  // Twelve-month chart for the current calendar year.
   const monthlySpendingTrend = Array.from(
     { length: 12 },
     (_, monthIndex) => {
@@ -192,51 +234,51 @@ function ProtectedLayout() {
           const expenseDate = new Date(expense.date);
 
           return (
-            !Number.isNaN(expenseDate.getTime()) &&
+            isValidExpenseDate(expense.date) &&
             expenseDate.getMonth() === monthIndex &&
             expenseDate.getFullYear() === currentYear
           );
         })
         .reduce(
           (total, expense) =>
-            total + Number(expense.amount || 0),
+            total + getExpenseAmount(expense.amount),
           0
         );
 
       return {
-        month: new Date(
-          currentYear,
-          monthIndex,
-          1
-        ).toLocaleString("en-US", { month: "short" }),
+        month: new Date(currentYear, monthIndex, 1).toLocaleString(
+          "en-US",
+          { month: "short" }
+        ),
         amount,
       };
     }
   );
 
-  const remainingBudget = monthlyBudget - totalSpent;
+  // Budget calculations always use current-month spending.
+  const remainingBudget = monthlyBudget - monthlyTotalSpent;
 
   const budgetProgress =
     monthlyBudget > 0
-      ? Math.min((totalSpent / monthlyBudget) * 100, 100)
+      ? Math.min((monthlyTotalSpent / monthlyBudget) * 100, 100)
       : 0;
 
   const budgetUsagePercentage =
-    monthlyBudget > 0 ? (totalSpent / monthlyBudget) * 100 : 0;
+    monthlyBudget > 0
+      ? (monthlyTotalSpent / monthlyBudget) * 100
+      : 0;
 
   const budgetStatus =
     monthlyBudget <= 0
       ? "No budget set"
-      : totalSpent > monthlyBudget
+      : monthlyTotalSpent > monthlyBudget
         ? "Over budget"
         : budgetUsagePercentage >= 80
           ? "Approaching limit"
           : "Within budget";
 
   const recentExpenses = [...expenses]
-    .filter(
-      (expense) => !Number.isNaN(new Date(expense.date).getTime())
-    )
+    .filter((expense) => isValidExpenseDate(expense.date))
     .sort(
       (a, b) =>
         new Date(b.date).getTime() -
@@ -357,6 +399,39 @@ function ProtectedLayout() {
               </button>
             </div>
 
+            {/* Dashboard spending period filter */}
+            <div className="dashboard-filter">
+              <span>View spending:</span>
+
+              <div
+                className="dashboard-filter-options"
+                role="group"
+                aria-label="Choose dashboard spending period"
+              >
+                <button
+                  type="button"
+                  className={
+                    dashboardPeriod === "month" ? "active" : ""
+                  }
+                  aria-pressed={dashboardPeriod === "month"}
+                  onClick={() => setDashboardPeriod("month")}
+                >
+                  This Month
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    dashboardPeriod === "year" ? "active" : ""
+                  }
+                  aria-pressed={dashboardPeriod === "year"}
+                  onClick={() => setDashboardPeriod("year")}
+                >
+                  This Year
+                </button>
+              </div>
+            </div>
+
             <div className="summary-grid">
               <article className="summary-card">
                 <div className="card-heading">
@@ -375,12 +450,18 @@ function ProtectedLayout() {
 
               <article className="summary-card">
                 <div className="card-heading">
-                  <span>Total Spent</span>
+                  <span>
+                    {dashboardPeriod === "month"
+                      ? "Total Spent"
+                      : "Year-to-Date Spending"}
+                  </span>
                   <span className="card-icon blue">↗</span>
                 </div>
                 <h2>{formatRWF(totalSpent)}</h2>
                 <p className="muted-text">
-                  Expenses recorded this month
+                  {dashboardPeriod === "month"
+                    ? "Expenses recorded this month"
+                    : `Expenses recorded in ${currentYear}`}
                 </p>
               </article>
 
@@ -392,29 +473,36 @@ function ProtectedLayout() {
                 <h2>{formatRWF(remainingBudget)}</h2>
                 <p className="muted-text">
                   {monthlyBudget > 0
-                    ? "Remaining from your saved budget"
+                    ? "Based on this month's spending"
                     : "Save a monthly budget to track your balance"}
                 </p>
               </article>
 
               <article className="summary-card">
                 <div className="card-heading">
-                  <span>Highest Expense</span>
+                  <span>
+                    {dashboardPeriod === "month"
+                      ? "Highest Expense"
+                      : "Highest Expense This Year"}
+                  </span>
                   <span className="card-icon red">↑</span>
                 </div>
                 <h2>{formatRWF(highestExpense)}</h2>
                 <p className="muted-text">
-                  Largest expense this month
+                  Largest expense in the selected period
                 </p>
               </article>
 
-              {/* New month-to-month spending comparison card */}
               <article className="summary-card">
                 <div className="card-heading">
                   <span>Spending vs Last Month</span>
                   <span
                     className={`card-icon ${
-                      spendingDifference > 0 ? "red" : "green"
+                      spendingDifference > 0
+                        ? "red"
+                        : spendingDifference < 0
+                          ? "green"
+                          : "gold"
                     }`}
                   >
                     {spendingDifference > 0
@@ -463,7 +551,7 @@ function ProtectedLayout() {
                         ? ""
                         : monthlyBudget <= 0
                           ? "no-budget"
-                          : totalSpent > monthlyBudget
+                          : monthlyTotalSpent > monthlyBudget
                             ? "over-budget"
                             : budgetUsagePercentage >= 80
                               ? "approaching-limit"
@@ -475,7 +563,9 @@ function ProtectedLayout() {
                 </div>
 
                 <div className="budget-numbers">
-                  <strong>{formatRWF(totalSpent)} spent</strong>
+                  <strong>
+                    {formatRWF(monthlyTotalSpent)} spent
+                  </strong>
                   <span>
                     of{" "}
                     {budgetLoading
@@ -491,7 +581,7 @@ function ProtectedLayout() {
                       width: `${budgetProgress}%`,
                       background:
                         monthlyBudget > 0 &&
-                        totalSpent > monthlyBudget
+                        monthlyTotalSpent > monthlyBudget
                           ? "#dc2626"
                           : budgetUsagePercentage >= 80
                             ? "#d97706"
@@ -516,20 +606,20 @@ function ProtectedLayout() {
                       padding: "14px 16px",
                       borderRadius: "10px",
                       background:
-                        totalSpent > monthlyBudget
+                        monthlyTotalSpent > monthlyBudget
                           ? "#fef2f2"
                           : budgetUsagePercentage >= 80
                             ? "#fffbeb"
                             : "#f0fdf4",
                       border: `1px solid ${
-                        totalSpent > monthlyBudget
+                        monthlyTotalSpent > monthlyBudget
                           ? "#fecaca"
                           : budgetUsagePercentage >= 80
                             ? "#fde68a"
                             : "#bbf7d0"
                       }`,
                       color:
-                        totalSpent > monthlyBudget
+                        monthlyTotalSpent > monthlyBudget
                           ? "#991b1b"
                           : budgetUsagePercentage >= 80
                             ? "#92400e"
@@ -537,7 +627,7 @@ function ProtectedLayout() {
                     }}
                   >
                     <strong>
-                      {totalSpent > monthlyBudget
+                      {monthlyTotalSpent > monthlyBudget
                         ? "Budget exceeded"
                         : budgetUsagePercentage >= 80
                           ? "Budget warning"
@@ -545,9 +635,9 @@ function ProtectedLayout() {
                     </strong>
 
                     <p style={{ margin: "6px 0 0" }}>
-                      {totalSpent > monthlyBudget
+                      {monthlyTotalSpent > monthlyBudget
                         ? `You have exceeded your monthly budget by ${formatRWF(
-                            totalSpent - monthlyBudget
+                            monthlyTotalSpent - monthlyBudget
                           )}. Review your expenses to get back on track.`
                         : budgetUsagePercentage >= 80
                           ? `You have used ${Math.round(
@@ -677,14 +767,16 @@ function ProtectedLayout() {
                 <div>
                   <h3>Spending by Category</h3>
                   <p>
-                    See how this month's expenses are distributed.
+                    {dashboardPeriod === "month"
+                      ? "Category breakdown for this month."
+                      : `Category breakdown for ${currentYear}.`}
                   </p>
                 </div>
               </div>
 
               {categoryChartData.length === 0 ? (
                 <p className="muted-text" style={{ marginTop: "20px" }}>
-                  No expenses recorded for this month yet. Add expenses
+                  No expenses recorded for this period yet. Add expenses
                   to see your category breakdown.
                 </p>
               ) : (
@@ -846,7 +938,7 @@ function ProtectedLayout() {
                       </div>
 
                       <strong>
-                        {formatRWF(Number(expense.amount || 0))}
+                        {formatRWF(getExpenseAmount(expense.amount))}
                       </strong>
                     </div>
                   ))}
