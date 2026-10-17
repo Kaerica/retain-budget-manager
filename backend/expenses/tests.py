@@ -1,4 +1,3 @@
-
 from datetime import date
 from decimal import Decimal
 
@@ -7,7 +6,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from .models import Expense, Budget
+from .models import Expense, Budget, Category
 
 
 class ExpenseAPITests(APITestCase):
@@ -46,10 +45,7 @@ class ExpenseAPITests(APITestCase):
             response.data,
         )
         self.assertEqual(Expense.objects.count(), 1)
-        self.assertEqual(
-            Expense.objects.first().user,
-            self.user,
-        )
+        self.assertEqual(Expense.objects.first().user, self.user)
 
     def test_authenticated_user_can_list_expenses(self):
         Expense.objects.create(
@@ -63,10 +59,7 @@ class ExpenseAPITests(APITestCase):
 
         response = self.client.get("/api/expenses/")
 
-        self.assertEqual(
-            response.status_code,
-            status.HTTP_200_OK,
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
 
     def test_unauthenticated_user_cannot_list_expenses(self):
@@ -96,10 +89,7 @@ class ExpenseAPITests(APITestCase):
 
         response = self.client.get("/api/expenses/")
 
-        self.assertEqual(
-            response.status_code,
-            status.HTTP_200_OK,
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
 
 
@@ -135,11 +125,8 @@ class AuthenticationAndBudgetTests(APITestCase):
         )
 
         self.assertTrue(
-            User.objects.filter(
-                email="new@example.com"
-            ).exists()
+            User.objects.filter(email="new@example.com").exists()
         )
-
         self.assertIn("token", response.data)
         self.assertIn("user", response.data)
 
@@ -160,7 +147,6 @@ class AuthenticationAndBudgetTests(APITestCase):
             status.HTTP_200_OK,
             response.data,
         )
-
         self.assertIn("token", response.data)
 
     def test_signin_rejects_wrong_password(self):
@@ -292,4 +278,103 @@ class ProfileAPITests(APITestCase):
         self.assertEqual(
             response.status_code,
             status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class CategoryAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="categoryuser",
+            email="category@example.com",
+            password="CategoryPassword123!",
+        )
+
+        self.token = Token.objects.create(user=self.user)
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Token {self.token.key}"
+        )
+
+    def test_authenticated_user_can_create_category(self):
+        response = self.client.post(
+            "/api/categories/",
+            {"name": "Food"},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_201_CREATED,
+            response.data,
+        )
+
+        self.assertTrue(
+            Category.objects.filter(
+                user=self.user,
+                name="Food",
+            ).exists()
+        )
+
+    def test_authenticated_user_can_list_categories(self):
+        Category.objects.create(
+            user=self.user,
+            name="Transport",
+        )
+
+        response = self.client.get("/api/categories/")
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+            response.data,
+        )
+        self.assertEqual(len(response.data), 1)
+
+    def test_user_cannot_see_another_users_categories(self):
+        other_user = User.objects.create_user(
+            username="othercategoryuser",
+            email="othercategory@example.com",
+            password="OtherPassword123!",
+        )
+
+        Category.objects.create(
+            user=other_user,
+            name="Private Category",
+        )
+
+        response = self.client.get("/api/categories/")
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+            response.data,
+        )
+        self.assertEqual(len(response.data), 0)
+
+    def test_category_endpoint_requires_authentication(self):
+        self.client.credentials()
+
+        response = self.client.get("/api/categories/")
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def test_duplicate_category_name_is_rejected(self):
+        Category.objects.create(
+            user=self.user,
+            name="Food",
+        )
+
+        response = self.client.post(
+            "/api/categories/",
+            {"name": "Food"},
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+            response.data,
         )
