@@ -15,6 +15,11 @@ import {
   type Expense,
 } from "../store/expenseSlice";
 
+import {
+  getCategories,
+  type Category,
+} from "../services/categoryService";
+
 import { formatCurrency, getSavedCurrency } from "../utils/currency";
 
 export default function Expenses() {
@@ -31,6 +36,10 @@ export default function Expenses() {
   } = useSelector((state: RootState) => state.expenses);
 
   const currency = getSavedCurrency();
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoryLoadError, setCategoryLoadError] = useState("");
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Food");
@@ -49,9 +58,50 @@ export default function Expenses() {
     dispatch(fetchExpenses());
   }, [dispatch]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadCategories() {
+      setCategoriesLoading(true);
+      setCategoryLoadError("");
+
+      try {
+        const data = await getCategories();
+
+        if (active) {
+          setCategories(data);
+
+          setCategory((current) => {
+            if (data.some((item) => item.name === current)) {
+              return current;
+            }
+
+            return data[0]?.name ?? "";
+          });
+        }
+      } catch {
+        if (active) {
+          setCategoryLoadError(
+            "Could not load categories. Check your sign-in and connection."
+          );
+        }
+      } finally {
+        if (active) {
+          setCategoriesLoading(false);
+        }
+      }
+    }
+
+    void loadCategories();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   function resetForm() {
     setTitle("");
-    setCategory("Food");
+    setCategory(categories[0]?.name ?? "");
     setAmount("");
     setDate(new Date().toISOString().slice(0, 10));
     setEditingId(null);
@@ -73,6 +123,11 @@ export default function Expenses() {
 
     if (!amount || !Number.isFinite(numericAmount) || numericAmount <= 0) {
       setError("Please enter an amount greater than zero.");
+      return;
+    }
+
+    if (!category) {
+      setError("Please create or select a category first.");
       return;
     }
 
@@ -152,11 +207,8 @@ export default function Expenses() {
       const matchesCategory =
         categoryFilter === "All" || expense.category === categoryFilter;
 
-      const matchesStartDate =
-        !startDate || expense.date >= startDate;
-
-      const matchesEndDate =
-        !endDate || expense.date <= endDate;
+      const matchesStartDate = !startDate || expense.date >= startDate;
+      const matchesEndDate = !endDate || expense.date <= endDate;
 
       return (
         matchesSearch &&
@@ -283,6 +335,12 @@ export default function Expenses() {
           </p>
         )}
 
+        {categoryLoadError && (
+          <p role="alert" className="form-error">
+            {categoryLoadError}
+          </p>
+        )}
+
         <form className="expense-form" onSubmit={handleSubmit}>
           <label htmlFor="expense-title">
             Expense Name
@@ -316,14 +374,20 @@ export default function Expenses() {
               id="expense-category"
               value={category}
               onChange={(event) => setCategory(event.target.value)}
+              disabled={categoriesLoading || categories.length === 0}
+              required
             >
-              <option value="Food">Food</option>
-              <option value="Transport">Transport</option>
-              <option value="Education">Education</option>
-              <option value="Housing">Housing</option>
-              <option value="Health">Health</option>
-              <option value="Entertainment">Entertainment</option>
-              <option value="Other">Other</option>
+              {categoriesLoading ? (
+                <option value="">Loading categories...</option>
+              ) : categories.length === 0 ? (
+                <option value="">No categories available</option>
+              ) : (
+                categories.map((item) => (
+                  <option key={item.id} value={item.name}>
+                    {item.name}
+                  </option>
+                ))
+              )}
             </select>
           </label>
 
@@ -339,7 +403,14 @@ export default function Expenses() {
           </label>
 
           <div className="expense-form-actions">
-            <button type="submit" disabled={submitting}>
+            <button
+              type="submit"
+              disabled={
+                submitting ||
+                categoriesLoading ||
+                categories.length === 0
+              }
+            >
               {submitting
                 ? "Saving..."
                 : editingId !== null
@@ -382,13 +453,11 @@ export default function Expenses() {
               }
             >
               <option value="All">All categories</option>
-              <option value="Food">Food</option>
-              <option value="Transport">Transport</option>
-              <option value="Education">Education</option>
-              <option value="Housing">Housing</option>
-              <option value="Health">Health</option>
-              <option value="Entertainment">Entertainment</option>
-              <option value="Other">Other</option>
+              {categories.map((item) => (
+                <option key={item.id} value={item.name}>
+                  {item.name}
+                </option>
+              ))}
             </select>
           </label>
 
