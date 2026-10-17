@@ -8,9 +8,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Expense, Budget
+from .models import Expense, Budget, Category
 from .serializers import ExpenseSerializer, BudgetSerializer
 from .auth_serializers import SignupSerializer
+from .category_serializers import CategorySerializer
 
 
 class SignupView(generics.CreateAPIView):
@@ -96,6 +97,17 @@ class ExpenseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Expense.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Category.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
