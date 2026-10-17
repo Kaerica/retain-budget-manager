@@ -52,3 +52,25 @@ class Budget(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.month}/{self.year}: {self.amount}"
+
+
+class Category(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="expense_categories",
+    )
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                name="unique_user_category_name",
+            )
+        ]
+
+    def __str__(self):
+        return self.name

@@ -1,7 +1,7 @@
 
 from django.contrib import admin
 
-from .models import Expense, Budget
+from .models import Expense, Budget, Category
 
 
 @admin.register(Expense)
@@ -48,4 +48,11 @@ class BudgetAdmin(admin.ModelAdmin):
         "user__email",
     )
     ordering = ("-year", "-month")
+    list_per_page = 25
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "user", "created_at")
+    search_fields = ("name", "user__username", "user__email")
+    ordering = ("name",)
     list_per_page = 25
