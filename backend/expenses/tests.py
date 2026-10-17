@@ -215,3 +215,81 @@ class AuthenticationAndBudgetTests(APITestCase):
             response.status_code,
             status.HTTP_401_UNAUTHORIZED,
         )
+
+
+class ProfileAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="profile@example.com",
+            email="profile@example.com",
+            first_name="Profile User",
+            password="ProfilePassword123!",
+        )
+
+        self.token = Token.objects.create(user=self.user)
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Token {self.token.key}"
+        )
+
+    def test_authenticated_user_can_view_profile(self):
+        response = self.client.get("/api/profile/")
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+            response.data,
+        )
+        self.assertEqual(response.data["email"], "profile@example.com")
+        self.assertEqual(response.data["name"], "Profile User")
+
+    def test_authenticated_user_can_update_profile(self):
+        response = self.client.patch(
+            "/api/profile/",
+            {
+                "name": "Updated User",
+                "email": "updated@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+            response.data,
+        )
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Updated User")
+        self.assertEqual(self.user.email, "updated@example.com")
+
+    def test_profile_requires_authentication(self):
+        self.client.credentials()
+
+        response = self.client.get("/api/profile/")
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
+        )
+
+    def test_profile_rejects_duplicate_email(self):
+        User.objects.create_user(
+            username="existing@example.com",
+            email="existing@example.com",
+            password="ExistingPassword123!",
+        )
+
+        response = self.client.patch(
+            "/api/profile/",
+            {
+                "name": "Profile User",
+                "email": "existing@example.com",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
