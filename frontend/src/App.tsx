@@ -5,9 +5,10 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   BarChart,
   Bar,
@@ -22,7 +23,8 @@ import {
   Legend,
 } from "recharts";
 
-import type { RootState } from "./store/store";
+import type { AppDispatch, RootState } from "./store/store";
+import { fetchExpenses } from "./store/expenseSlice";
 import { getBudgets } from "./services/budgetService";
 import Expenses from "./pages/Expenses";
 import Budgets from "./pages/Budgets";
@@ -30,6 +32,11 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Signup from "./pages/Signup";
 import Signin from "./pages/Signin";
+import ExpenseDetail from "./pages/ExpenseDetail";
+import AdminDashboard from "./pages/AdminDashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
+import "./styles/additions.css";
 import { useAuth } from "./context/AuthContext";
 import { formatCurrency, getSavedCurrency } from "./utils/currency";
 
@@ -40,7 +47,30 @@ type Page =
   | "Expenses"
   | "Budgets"
   | "Reports"
-  | "Settings";
+  | "Settings"
+  | "Admin"
+  | "Expense Details";
+
+// Each page has its own URL so pages can be bookmarked and protected.
+const PAGE_PATHS: Record<Page, string> = {
+  Dashboard: "/",
+  Expenses: "/expenses",
+  Budgets: "/budgets",
+  Reports: "/reports",
+  Settings: "/settings",
+  Admin: "/admin",
+  "Expense Details": "/expenses",
+};
+
+function getPageFromPath(pathname: string): Page {
+  if (/^\/expenses\/\d+\/?$/.test(pathname)) return "Expense Details";
+  if (pathname.startsWith("/expenses")) return "Expenses";
+  if (pathname.startsWith("/budgets")) return "Budgets";
+  if (pathname.startsWith("/reports")) return "Reports";
+  if (pathname.startsWith("/settings")) return "Settings";
+  if (pathname.startsWith("/admin")) return "Admin";
+  return "Dashboard";
+}
 
 type DashboardPeriod = "month" | "year";
 
@@ -56,10 +86,23 @@ const CHART_COLORS = [
 ];
 
 function ProtectedLayout() {
-  const { user, isAuthenticated, signout } = useAuth();
+  const { user, isAuthenticated, isAdmin, signout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch<AppDispatch>();
 
-  const [activePage, setActivePage] = useState<Page>("Dashboard");
+  // The active page comes from the URL (e.g. /expenses -> "Expenses").
+  const activePage = getPageFromPath(location.pathname);
+  const setActivePage = (page: Page) => navigate(PAGE_PATHS[page]);
+
+  // Load the user's expenses once so the dashboard, budgets and reports
+  // have data even before the Expenses page is opened.
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchExpenses());
+    }
+  }, [dispatch, isAuthenticated, user?.id]);
+
   const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [budgetLoading, setBudgetLoading] = useState(true);
   const [dashboardPeriod, setDashboardPeriod] =
@@ -296,6 +339,8 @@ function ProtectedLayout() {
     "Budgets",
     "Reports",
     "Settings",
+    // Only admins see the Admin link.
+    ...(isAdmin ? (["Admin"] as Page[]) : []),
   ];
 
   function handleSignout() {
@@ -322,7 +367,10 @@ function ProtectedLayout() {
               key={page}
               type="button"
               className={`nav-item ${
-                activePage === page ? "active" : ""
+                activePage === page ||
+                (page === "Expenses" && activePage === "Expense Details")
+                  ? "active"
+                  : ""
               }`}
               onClick={() => setActivePage(page)}
             >
@@ -332,6 +380,7 @@ function ProtectedLayout() {
                 {page === "Budgets" && "◷"}
                 {page === "Reports" && "▤"}
                 {page === "Settings" && "⚙"}
+                {page === "Admin" && "★"}
               </span>
               {page}
             </button>
@@ -346,6 +395,7 @@ function ProtectedLayout() {
           <div>
             <strong>{user?.name || "My Account"}</strong>
             <p>{user?.email || "Personal User"}</p>
+            {isAdmin && <span className="role-badge">Admin</span>}
 
             <button
               type="button"
@@ -971,6 +1021,20 @@ function ProtectedLayout() {
             <Settings />
           </section>
         )}
+
+        {activePage === "Expense Details" && (
+          <section className="page-content">
+            <ExpenseDetail />
+          </section>
+        )}
+
+        {activePage === "Admin" && (
+          <section className="page-content">
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          </section>
+        )}
       </main>
     </div>
   );
@@ -995,14 +1059,33 @@ function AppRoutes() {
         }
       />
 
+      {/* Protected routes: only signed-in users (checked with AuthContext). */}
+      {[
+        "/",
+        "/expenses",
+        "/expenses/:id",
+        "/budgets",
+        "/reports",
+        "/settings",
+      ].map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout />
+            </ProtectedRoute>
+          }
+        />
+      ))}
+
+      {/* Admin route: signed-in users with the admin role only. */}
       <Route
-        path="/"
+        path="/admin"
         element={
-          isAuthenticated ? (
+          <ProtectedRoute>
             <ProtectedLayout />
-          ) : (
-            <Navigate to="/signin" replace />
-          )
+          </ProtectedRoute>
         }
       />
 

@@ -1,0 +1,421 @@
+/*
+  Styles for the features added on top of the original design:
+  expense filters, notes, pagination, expense details, admin dashboard.
+  Colours follow the existing palette (navy #14233f / #243b64, gold #e8bd63).
+*/
+
+/* ---------- Shared helpers ---------- */
+
+.form-error {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border: 1px solid #f3c7c7;
+  border-radius: 8px;
+  background: #fdf2f2;
+  color: #b34242;
+  font-size: 13px;
+}
+
+.form-success {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border: 1px solid #bfe5cc;
+  border-radius: 8px;
+  background: #f0faf3;
+  color: #17723a;
+  font-size: 13px;
+}
+
+.role-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e8bd63;
+  color: #14233f;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.danger-button {
+  border: 1px solid #f0dada;
+  background: #fff;
+  color: #b34242;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ---------- Expense form additions ---------- */
+
+.expense-form textarea {
+  resize: vertical;
+}
+
+.expense-notes-field {
+  grid-column: 1 / -1;
+}
+
+.expense-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.expense-form .expense-form-actions {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.expense-form-actions button:not([type="submit"]) {
+  padding: 10px 15px;
+  border: 1px solid #dfe4ec;
+  border-radius: 8px;
+  background: #fff;
+  color: #14233f;
+  font-weight: 600;
+}
+
+.expense-form-actions button.primary-button {
+  border-color: transparent;
+  background: #e8bd63;
+}
+
+.expense-form-actions button.danger-button {
+  border-color: #f0dada;
+  color: #b34242;
+}
+
+/* ---------- Filters ---------- */
+
+.expense-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.expense-filters label {
+  display: grid;
+  gap: 6px;
+  color: #344158;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.expense-filters input,
+.expense-filters select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #dfe4ec;
+  border-radius: 8px;
+  background: #fff;
+  color: #14233f;
+  font: inherit;
+  font-weight: 400;
+}
+
+/* ---------- Expense list ---------- */
+
+.expense-item a {
+  color: #243b64;
+}
+
+.expense-item a:hover {
+  text-decoration: underline;
+}
+
+.expense-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.expense-item-actions .view-link {
+  padding: 8px 11px;
+  border: 1px solid #dfe4ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #243b64;
+  font-size: 13px;
+}
+
+.expense-item-actions .view-link:hover {
+  text-decoration: none;
+  background: #f5f7fb;
+}
+
+/* ---------- Pagination ---------- */
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #edf0f5;
+  color: #5d6a80;
+  font-size: 13px;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination button {
+  padding: 8px 12px;
+  border: 1px solid #dfe4ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #14233f;
+  font-weight: 600;
+}
+
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-size select {
+  padding: 6px 8px;
+  border: 1px solid #dfe4ec;
+  border-radius: 7px;
+  background: #fff;
+}
+
+/* ---------- Expense details ---------- */
+
+.expense-detail-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 18px;
+  margin: 0 0 24px;
+}
+
+.expense-detail-list div {
+  padding: 14px 16px;
+  border: 1px solid #edf0f5;
+  border-radius: 10px;
+  background: #fafbfd;
+}
+
+.expense-detail-list dt {
+  margin-bottom: 6px;
+  color: #8993a4;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.expense-detail-list dd {
+  margin: 0;
+  color: #14233f;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.expense-detail-wide {
+  grid-column: 1 / -1;
+}
+
+.expense-detail-amount {
+  font-size: 24px;
+}
+
+/* ---------- Admin dashboard ---------- */
+
+.admin-stats {
+  margin-bottom: 24px;
+}
+
+.page-content > .content-panel + .content-panel,
+.page-content > .content-panel + .admin-two-columns,
+.page-content > .admin-two-columns + .admin-two-columns,
+.page-content > .admin-two-columns + .content-panel {
+  margin-top: 24px;
+}
+
+.admin-two-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.admin-chart {
+  width: 100%;
+  height: 300px;
+  margin-top: 20px;
+}
+
+.admin-table-wrapper {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf0f5;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.admin-table th {
+  color: #8993a4;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.admin-ranking {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding-left: 22px;
+}
+
+.admin-ranking li {
+  padding: 4px 0;
+}
+
+.admin-ranking li > span {
+  margin-right: 10px;
+}
+
+.admin-ranking li > strong {
+  float: right;
+  color: #5d6a80;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.category-create-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.category-create-form label {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 6px;
+  color: #344158;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.category-create-form input,
+.category-admin-item input {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #dfe4ec;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.category-create-form .primary-button {
+  border: 0;
+  border-radius: 8px;
+  background: #e8bd63;
+}
+
+.category-admin-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.category-admin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #edf0f5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.category-admin-item small {
+  color: #8993a4;
+}
+
+.category-admin-item button {
+  padding: 7px 11px;
+  border: 1px solid #dfe4ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #14233f;
+}
+
+.category-admin-item .danger-button {
+  border-color: #f0dada;
+  color: #b34242;
+}
+
+.access-denied {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 900px) {
+  .admin-two-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .expense-notes-field {
+    grid-column: auto;
+  }
+
+  .pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pagination-controls {
+    justify-content: space-between;
+  }
+
+  .category-admin-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-ranking li > strong {
+    float: none;
+    display: block;
+  }
+
+  .expense-item {
+    flex-wrap: wrap;
+  }
+}

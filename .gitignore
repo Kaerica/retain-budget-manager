@@ -18,3 +18,13 @@ frontend/dist/
 # Editor and system files
 .vscode/
 .DS_Store
+
+# Virtual environment inside the expenses app and collected static files
+backend/expenses/venv/
+backend/staticfiles/
+venv/
+.venv/
+
+# Frontend environment files
+frontend/.env
+frontend/.env.local

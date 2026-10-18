@@ -54,10 +54,23 @@ class Budget(models.Model):
         return f"{self.user} - {self.month}/{self.year}: {self.amount}"
 
 
+# Name of the fallback category. Expenses are moved here when an admin
+# deletes the category they belonged to.
+DEFAULT_CATEGORY_NAME = "Uncategorized"
+
+
 class Category(models.Model):
+    """
+    Expense categories are shared by every user and managed by admins.
+    `user` records which admin created the category (it may be empty for
+    categories created by the system, e.g. "Uncategorized").
+    """
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="expense_categories",
     )
     name = models.CharField(max_length=100)
@@ -67,10 +80,15 @@ class Category(models.Model):
         ordering = ["name"]
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "name"],
-                name="unique_user_category_name",
+                fields=["name"],
+                name="unique_category_name",
             )
         ]
+
+    @classmethod
+    def get_default(cls):
+        category, _ = cls.objects.get_or_create(name=DEFAULT_CATEGORY_NAME)
+        return category
 
     def __str__(self):
         return self.name

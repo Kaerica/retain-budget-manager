@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Link, useSearchParams } from "react-router-dom";
 import type { AppDispatch, RootState } from "../store/store";
 
 import {
@@ -11,9 +12,25 @@ import {
   setCategoryFilter,
   setSortBy,
   setSortOrder,
+  setPaymentMethodFilter,
+  setStartDate,
+  setEndDate,
+  setMinAmount,
+  setMaxAmount,
+  setCurrentPage,
+  setPageSize,
+  resetFilters,
+  clearDateFilters as clearDateFilterState,
   clearExpenseError,
+  selectFilteredExpenses,
+  selectPaginatedExpenses,
+  selectTotalPages,
+  PAYMENT_METHODS,
   type Expense,
+  type SortBy,
+  type SortOrder,
 } from "../store/expenseSlice";
+import Pagination from "../components/Pagination";
 
 import {
   getCategories,
@@ -31,9 +48,23 @@ export default function Expenses() {
     categoryFilter,
     sortBy,
     sortOrder,
+    paymentMethodFilter,
+    startDate,
+    endDate,
+    minAmount,
+    maxAmount,
+    currentPage,
+    pageSize,
     loading,
     error: apiError,
   } = useSelector((state: RootState) => state.expenses);
+
+  // Searching, filtering, sorting and paging are all computed by Redux selectors.
+  const filteredExpenses = useSelector(selectFilteredExpenses);
+  const paginatedExpenses = useSelector(selectPaginatedExpenses);
+  const totalPages = useSelector(selectTotalPages);
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const currency = getSavedCurrency();
 
@@ -47,12 +78,11 @@ export default function Expenses() {
   const [date, setDate] = useState(
     new Date().toISOString().slice(0, 10)
   );
+  const [paymentMethod, setPaymentMethod] = useState<string>(PAYMENT_METHODS[0]);
+  const [notes, setNotes] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
 
   useEffect(() => {
     dispatch(fetchExpenses());
@@ -104,6 +134,8 @@ export default function Expenses() {
     setCategory(categories[0]?.name ?? "");
     setAmount("");
     setDate(new Date().toISOString().slice(0, 10));
+    setPaymentMethod(PAYMENT_METHODS[0]);
+    setNotes("");
     setEditingId(null);
     setError("");
     dispatch(clearExpenseError());
@@ -147,6 +179,8 @@ export default function Expenses() {
             category,
             amount: numericAmount,
             date,
+            payment_method: paymentMethod,
+            description: notes.trim(),
           })
         ).unwrap();
       } else {
@@ -156,6 +190,8 @@ export default function Expenses() {
             category,
             amount: numericAmount,
             date,
+            payment_method: paymentMethod,
+            description: notes.trim(),
           })
         ).unwrap();
       }
@@ -178,10 +214,32 @@ export default function Expenses() {
     setCategory(expense.category);
     setAmount(String(expense.amount));
     setDate(expense.date);
+    setPaymentMethod(expense.payment_method || PAYMENT_METHODS[0]);
+    setNotes(expense.description ?? "");
     setError("");
     dispatch(clearExpenseError());
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  // Opening /expenses?edit=<id> (from the details page) starts editing that expense.
+  const editParam = searchParams.get("edit");
+
+  useEffect(() => {
+    if (!editParam || expenses.length === 0) {
+      return;
+    }
+
+    const expenseToEdit = expenses.find(
+      (expense) => expense.id === Number(editParam)
+    );
+
+    if (expenseToEdit) {
+      handleEdit(expenseToEdit);
+    }
+
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editParam, expenses]);
 
   async function handleDelete(id: number) {
     setError("");
@@ -198,52 +256,13 @@ export default function Expenses() {
     }
   }
 
-  const filteredExpenses = useMemo(() => {
-    const filtered = expenses.filter((expense) => {
-      const matchesSearch =
-        expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.category.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesCategory =
-        categoryFilter === "All" || expense.category === categoryFilter;
-
-      const matchesStartDate = !startDate || expense.date >= startDate;
-      const matchesEndDate = !endDate || expense.date <= endDate;
-
-      return (
-        matchesSearch &&
-        matchesCategory &&
-        matchesStartDate &&
-        matchesEndDate
-      );
-    });
-
-    return [...filtered].sort((a, b) => {
-      const comparison =
-        sortBy === "amount"
-          ? Number(a.amount) - Number(b.amount)
-          : a.date.localeCompare(b.date);
-
-      return sortOrder === "ascending" ? comparison : -comparison;
-    });
-  }, [
-    expenses,
-    searchTerm,
-    categoryFilter,
-    sortBy,
-    sortOrder,
-    startDate,
-    endDate,
-  ]);
-
   const totalExpenses = filteredExpenses.reduce(
     (total, expense) => total + Number(expense.amount || 0),
     0
   );
 
   function clearDateFilters() {
-    setStartDate("");
-    setEndDate("");
+    dispatch(clearDateFilterState());
   }
 
   function exportExpensesToCSV() {
@@ -252,7 +271,14 @@ export default function Expenses() {
       return;
     }
 
-    const headers = ["Title", "Category", `Amount (${currency})`, "Date"];
+    const headers = [
+      "Title",
+      "Category",
+      `Amount (${currency})`,
+      "Date",
+      "Payment Method",
+      "Notes",
+    ];
 
     const escapeCSV = (value: unknown) => {
       const text = String(value ?? "");
@@ -264,6 +290,8 @@ export default function Expenses() {
       expense.category,
       expense.amount,
       expense.date,
+      expense.payment_method ?? "",
+      expense.description ?? "",
     ]);
 
     const csvContent = [
@@ -402,6 +430,34 @@ export default function Expenses() {
             />
           </label>
 
+          <label htmlFor="expense-payment-method">
+            Payment Method
+            <select
+              id="expense-payment-method"
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              required
+            >
+              {PAYMENT_METHODS.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label htmlFor="expense-notes" className="expense-notes-field">
+            Notes (optional)
+            <textarea
+              id="expense-notes"
+              rows={3}
+              maxLength={1000}
+              placeholder="Anything you want to remember about this expense"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </label>
+
           <div className="expense-form-actions">
             <button
               type="submit"
@@ -437,7 +493,7 @@ export default function Expenses() {
             <input
               id="expense-search"
               type="search"
-              placeholder="Search by name or category..."
+              placeholder="Search by name, category, payment or notes..."
               value={searchTerm}
               onChange={(event) => dispatch(setSearchTerm(event.target.value))}
             />
@@ -461,6 +517,24 @@ export default function Expenses() {
             </select>
           </label>
 
+          <label htmlFor="payment-filter">
+            Filter by payment method
+            <select
+              id="payment-filter"
+              value={paymentMethodFilter}
+              onChange={(event) =>
+                dispatch(setPaymentMethodFilter(event.target.value))
+              }
+            >
+              <option value="All">All payment methods</option>
+              {PAYMENT_METHODS.map((method) => (
+                <option key={method} value={method}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label htmlFor="start-date">
             Start date
             <input
@@ -468,7 +542,7 @@ export default function Expenses() {
               type="date"
               max={endDate || undefined}
               value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
+              onChange={(event) => dispatch(setStartDate(event.target.value))}
             />
           </label>
 
@@ -479,7 +553,31 @@ export default function Expenses() {
               type="date"
               min={startDate || undefined}
               value={endDate}
-              onChange={(event) => setEndDate(event.target.value)}
+              onChange={(event) => dispatch(setEndDate(event.target.value))}
+            />
+          </label>
+
+          <label htmlFor="min-amount">
+            Min amount ({currency})
+            <input
+              id="min-amount"
+              type="number"
+              min="0"
+              placeholder="0"
+              value={minAmount}
+              onChange={(event) => dispatch(setMinAmount(event.target.value))}
+            />
+          </label>
+
+          <label htmlFor="max-amount">
+            Max amount ({currency})
+            <input
+              id="max-amount"
+              type="number"
+              min="0"
+              placeholder="Any"
+              value={maxAmount}
+              onChange={(event) => dispatch(setMaxAmount(event.target.value))}
             />
           </label>
 
@@ -489,7 +587,7 @@ export default function Expenses() {
               id="sort-by"
               value={sortBy}
               onChange={(event) =>
-                dispatch(setSortBy(event.target.value as "date" | "amount"))
+                dispatch(setSortBy(event.target.value as SortBy))
               }
             >
               <option value="date">Date</option>
@@ -504,9 +602,7 @@ export default function Expenses() {
               value={sortOrder}
               onChange={(event) =>
                 dispatch(
-                  setSortOrder(
-                    event.target.value as "ascending" | "descending"
-                  )
+                  setSortOrder(event.target.value as SortOrder)
                 )
               }
             >
@@ -519,6 +615,10 @@ export default function Expenses() {
         <div className="expense-form-actions">
           <button type="button" onClick={clearDateFilters}>
             Clear Date Filters
+          </button>
+
+          <button type="button" onClick={() => dispatch(resetFilters())}>
+            Reset All Filters
           </button>
 
           <button type="button" onClick={exportExpensesToCSV}>
@@ -536,12 +636,15 @@ export default function Expenses() {
           <p>No matching expenses found.</p>
         ) : (
           <div className="expense-list">
-            {filteredExpenses.map((expense) => (
+            {paginatedExpenses.map((expense) => (
               <div className="expense-item" key={expense.id}>
                 <div>
-                  <strong>{expense.title}</strong>
+                  <strong>
+                    <Link to={`/expenses/${expense.id}`}>{expense.title}</Link>
+                  </strong>
                   <p>
                     {expense.category} · {expense.date}
+                    {expense.payment_method ? ` · ${expense.payment_method}` : ""}
                   </p>
                 </div>
 
@@ -550,6 +653,14 @@ export default function Expenses() {
                 </strong>
 
                 <div className="expense-item-actions">
+                  <Link
+                    to={`/expenses/${expense.id}`}
+                    className="view-link"
+                    aria-label={`View ${expense.title}`}
+                  >
+                    View
+                  </Link>
+
                   <button
                     type="button"
                     onClick={() => handleEdit(expense)}
@@ -570,6 +681,15 @@ export default function Expenses() {
             ))}
           </div>
         )}
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredExpenses.length}
+          pageSize={pageSize}
+          onPageChange={(page) => dispatch(setCurrentPage(page))}
+          onPageSizeChange={(size) => dispatch(setPageSize(size))}
+        />
       </article>
     </section>
   );

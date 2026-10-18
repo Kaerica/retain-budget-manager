@@ -3,15 +3,34 @@
 Django settings for config project.
 """
 
+import importlib.util
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-a5o48ag9xzz0u-o7%8zgv5(65onx_pi++j0cm@&^89b)0-u9l'
 
-DEBUG = True
+def env_list(name, default=""):
+    """Read a comma separated environment variable as a list."""
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+
+# Local development keeps working without any environment variables.
+# In production (e.g. Render) set DJANGO_SECRET_KEY, DJANGO_DEBUG=False,
+# DJANGO_ALLOWED_HOSTS, CORS_ALLOWED_ORIGINS and DATABASE_URL.
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY",
+    'django-insecure-a5o48ag9xzz0u-o7%8zgv5(65onx_pi++j0cm@&^89b)0-u9l',
+)
+
+DEBUG = os.environ.get("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
+
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"] + env_list("DJANGO_ALLOWED_HOSTS")
+
+# Render sets this automatically for web services.
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 
 # Default primary key field type
@@ -46,6 +65,11 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# WhiteNoise serves static files (Django admin CSS) in production.
+# It is only enabled when the package is installed.
+if importlib.util.find_spec("whitenoise") is not None:
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
@@ -74,6 +98,16 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Use PostgreSQL (or any database) in production by setting DATABASE_URL,
+# e.g. postgresql://user:password@host:5432/retain
+if os.environ.get("DATABASE_URL"):
+    import dj_database_url
+
+    DATABASES['default'] = dj_database_url.config(
+        conn_max_age=600,
+        ssl_require=os.environ.get("DATABASE_SSL", "True").lower() in ("1", "true", "yes"),
+    )
 
 
 # Password validation
@@ -108,6 +142,7 @@ USE_TZ = True
 # Static files
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 
 # Django REST Framework
@@ -127,7 +162,18 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-]
+] + env_list("CORS_ALLOWED_ORIGINS")
+
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+
+# Expose the header that tells admins how many expenses were moved
+# to "Uncategorized" after deleting a category.
+CORS_EXPOSE_HEADERS = ["X-Moved-Expenses"]
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 
 # Email

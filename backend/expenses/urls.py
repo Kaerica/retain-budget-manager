@@ -9,6 +9,7 @@ from .views import (
     CategoryViewSet,
     BudgetView,
     ProfileView,
+    AdminInsightsView,
 )
 
 router = DefaultRouter()
@@ -21,4 +22,9 @@ urlpatterns = [
     path("signin/", SigninView.as_view(), name="signin"),
     path("budgets/", BudgetView.as_view(), name="budgets"),
     path("profile/", ProfileView.as_view(), name="profile"),
+    path(
+        "admin/insights/",
+        AdminInsightsView.as_view(),
+        name="admin-insights",
+    ),
 ]

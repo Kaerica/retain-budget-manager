@@ -6,43 +6,46 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import api from "../services/api";
+import api, { UNAUTHORIZED_EVENT } from "../services/api";
+
+export type UserRole = "user" | "admin";
 
 export interface User {
   id: number;
   name: string;
   email: string;
-  role: "user" | "admin";
+  role: UserRole;
+}
+
+// User data as returned by the Django API.
+interface ApiUser {
+  id: number;
+  username: string;
+  name?: string;
+  email: string;
+  role?: UserRole;
 }
 
 interface AuthResponse {
   message: string;
-  user: {
-    id: number;
-    username: string;
-    name?: string;
-    email: string;
-  };
+  user: ApiUser;
   token: string;
 }
 
 interface ProfileResponse {
   message?: string;
-  user?: {
-    id: number;
-    username: string;
-    name?: string;
-    email: string;
-  };
+  user?: ApiUser;
   id?: number;
   username?: string;
   name?: string;
   email?: string;
+  role?: UserRole;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   loading: boolean;
   signup: (
     name: string,
@@ -58,6 +61,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SESSION_KEY = "retain-session";
 const TOKEN_KEY = "retain-token";
+
+function toRole(role: unknown): UserRole {
+  return role === "admin" ? "admin" : "user";
+}
 
 function getSavedSession(): User | null {
   try {
@@ -78,9 +85,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) {
       setUser(null);
       localStorage.removeItem(SESSION_KEY);
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    // Confirm the saved token is still valid and refresh the user's role
+    // from the server, so the role cannot be changed in localStorage.
+    let active = true;
+
+    api
+      .get<ProfileResponse>("profile/")
+      .then((response) => {
+        const profile = response.data.user ?? response.data;
+
+        if (
+          active &&
+          typeof profile.id === "number" &&
+          typeof profile.email === "string"
+        ) {
+          saveUser({
+            id: profile.id,
+            name: profile.name || profile.username || profile.email,
+            email: profile.email,
+            role: toRole(profile.role),
+          });
+        }
+      })
+      .catch(() => {
+        // A 401 is handled by the UNAUTHORIZED_EVENT listener below.
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Sign out automatically when the API says the token is invalid.
+  useEffect(() => {
+    function handleUnauthorized() {
+      signout();
+    }
+
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+
+    return () => {
+      window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    };
   }, []);
 
   function saveUser(sessionUser: User) {
@@ -93,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: response.user.id,
       name: response.user.name || response.user.username,
       email: response.user.email,
-      role: "user",
+      role: toRole(response.user.role),
     };
 
     localStorage.setItem(TOKEN_KEY, response.token);
@@ -148,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: profile.id,
       name: profile.name || profile.username || name.trim(),
       email: profile.email,
-      role: user?.role ?? "user",
+      role: profile.role ? toRole(profile.role) : user?.role ?? "user",
     };
 
     saveUser(updatedUser);
@@ -165,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: user !== null,
+        isAdmin: user?.role === "admin",
         loading,
         signup,
         signin,

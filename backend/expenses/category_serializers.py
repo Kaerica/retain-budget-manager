@@ -18,19 +18,16 @@ class CategorySerializer(serializers.ModelSerializer):
                 "Category name cannot be empty."
             )
 
-        user = self.context["request"].user
-
-        categories = Category.objects.filter(
-            user=user,
-            name__iexact=name,
-        )
+        # Categories are shared by all users, so names must be unique
+        # across the whole platform.
+        categories = Category.objects.filter(name__iexact=name)
 
         if self.instance:
             categories = categories.exclude(id=self.instance.id)
 
         if categories.exists():
             raise serializers.ValidationError(
-                "You already have a category with this name."
+                "A category with this name already exists."
             )
 
         return name
