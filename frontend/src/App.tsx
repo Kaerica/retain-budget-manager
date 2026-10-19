@@ -34,6 +34,7 @@ import Signup from "./pages/Signup";
 import Signin from "./pages/Signin";
 import ExpenseDetail from "./pages/ExpenseDetail";
 import AdminDashboard from "./pages/AdminDashboard";
+import CategoryManager from "./components/CategoryManager";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import "./styles/additions.css";
@@ -49,6 +50,7 @@ type Page =
   | "Reports"
   | "Settings"
   | "Admin"
+  | "Categories"
   | "Expense Details";
 
 // Each page has its own URL so pages can be bookmarked and protected.
@@ -59,6 +61,7 @@ const PAGE_PATHS: Record<Page, string> = {
   Reports: "/reports",
   Settings: "/settings",
   Admin: "/admin",
+  Categories: "/admin/categories",
   "Expense Details": "/expenses",
 };
 
@@ -68,6 +71,7 @@ function getPageFromPath(pathname: string): Page {
   if (pathname.startsWith("/budgets")) return "Budgets";
   if (pathname.startsWith("/reports")) return "Reports";
   if (pathname.startsWith("/settings")) return "Settings";
+  if (pathname.startsWith("/admin/categories")) return "Categories";
   if (pathname.startsWith("/admin")) return "Admin";
   return "Dashboard";
 }
@@ -98,10 +102,11 @@ function ProtectedLayout() {
   // Load the user's expenses once so the dashboard, budgets and reports
   // have data even before the Expenses page is opened.
   useEffect(() => {
-    if (isAuthenticated) {
+    // Admins use the admin panel, so they don't need personal expenses.
+    if (isAuthenticated && !isAdmin) {
       dispatch(fetchExpenses());
     }
-  }, [dispatch, isAuthenticated, user?.id]);
+  }, [dispatch, isAuthenticated, isAdmin, user?.id]);
 
   const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [budgetLoading, setBudgetLoading] = useState(true);
@@ -333,15 +338,16 @@ function ProtectedLayout() {
     return <Navigate to="/signin" replace />;
   }
 
-  const navigation: Page[] = [
-    "Dashboard",
-    "Expenses",
-    "Budgets",
-    "Reports",
-    "Settings",
-    // Only admins see the Admin link.
-    ...(isAdmin ? (["Admin"] as Page[]) : []),
-  ];
+  // Admins get their own panel. Personal pages send them to /admin.
+  const ADMIN_PAGES: Page[] = ["Admin", "Categories", "Settings"];
+
+  if (isAdmin && !ADMIN_PAGES.includes(activePage)) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  const navigation: Page[] = isAdmin
+    ? ADMIN_PAGES
+    : ["Dashboard", "Expenses", "Budgets", "Reports", "Settings"];
 
   function handleSignout() {
     signout();
@@ -355,7 +361,7 @@ function ProtectedLayout() {
           <div className="brand-icon">R</div>
           <div>
             <h2>Retain</h2>
-            <p>Personal Finance</p>
+            <p>{isAdmin ? "Admin Panel" : "Personal Finance"}</p>
           </div>
         </div>
 
@@ -381,8 +387,9 @@ function ProtectedLayout() {
                 {page === "Reports" && "▤"}
                 {page === "Settings" && "⚙"}
                 {page === "Admin" && "★"}
+                {page === "Categories" && "▦"}
               </span>
-              {page}
+              {page === "Admin" ? "Admin Dashboard" : page}
             </button>
           ))}
         </nav>
@@ -412,9 +419,10 @@ function ProtectedLayout() {
         <header className="topbar">
           <div>
             <p className="breadcrumb">
-              My Workspace / {activePage}
+              {isAdmin ? "Admin Panel" : "My Workspace"} /{" "}
+              {activePage === "Admin" ? "Admin Dashboard" : activePage}
             </p>
-            <h2>{activePage}</h2>
+            <h2>{activePage === "Admin" ? "Admin Dashboard" : activePage}</h2>
           </div>
 
           <div className="topbar-right">
@@ -1035,6 +1043,14 @@ function ProtectedLayout() {
             </AdminRoute>
           </section>
         )}
+
+        {activePage === "Categories" && (
+          <section className="page-content">
+            <AdminRoute>
+              <CategoryManager />
+            </AdminRoute>
+          </section>
+        )}
       </main>
     </div>
   );
@@ -1080,6 +1096,14 @@ function AppRoutes() {
       ))}
 
       {/* Admin route: signed-in users with the admin role only. */}
+      <Route
+        path="/admin/categories"
+        element={
+          <ProtectedRoute>
+            <ProtectedLayout />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin"
         element={
