@@ -10,7 +10,7 @@ import {
 } from "recharts";
 
 import StatCard from "../components/StatCard";
-import CategoryManager from "../components/CategoryManager";
+import { Link } from "react-router-dom";
 import {
   getAdminInsights,
   type AdminInsights,
@@ -94,9 +94,14 @@ export default function AdminDashboard() {
           <p>Platform insights and expense category management.</p>
         </div>
 
-        <button type="button" onClick={() => void loadInsights()}>
-          Refresh
-        </button>
+        <div className="expense-form-actions">
+          <Link to="/admin/categories" className="primary-button">
+            Manage Categories
+          </Link>
+          <button type="button" onClick={() => void loadInsights()}>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -282,8 +287,6 @@ export default function AdminDashboard() {
           </div>
         </>
       ) : null}
-
-      <CategoryManager onChange={() => void loadInsights()} />
     </section>
   );
 }
