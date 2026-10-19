@@ -1,0 +1,278 @@
+/*
+  Responsive layout for Retain.
+  Loaded last so it can tidy up the older media queries.
+  - Desktop: fixed sidebar with a clearly visible Sign out button.
+  - Tablet / mobile (≤ 900px): the sidebar becomes a slide-in menu opened
+    with the ☰ button; Sign out is always available in the top bar.
+*/
+
+/* ---------- Sign out (always visible) ---------- */
+
+.topbar-signout,
+.sidebar .signout-button {
+  padding: 8px 14px;
+  border: 1px solid #e8bd63;
+  border-radius: 8px;
+  background: #e8bd63;
+  color: #14233f;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.topbar-signout:hover,
+.sidebar .signout-button:hover {
+  background: #d9a944;
+}
+
+.sidebar .signout-button {
+  display: block;
+  margin-top: 10px;
+}
+
+/* ---------- Sidebar never cuts off its bottom part ---------- */
+
+.sidebar {
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 40;
+}
+
+.sidebar .sidebar-bottom {
+  display: flex;
+  align-items: flex-start;
+}
+
+.sidebar-bottom > div {
+  min-width: 0;
+}
+
+.sidebar-bottom p {
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Top bar ---------- */
+
+.menu-toggle {
+  display: none;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #dfe4ec;
+  border-radius: 10px;
+  background: #fff;
+  color: #14233f;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.topbar-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.main-area .topbar {
+  flex-direction: row;
+  align-items: center;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+/* Long content never pushes the page sideways */
+.main-area {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.page-content img,
+.page-content table {
+  max-width: 100%;
+}
+
+/* ---------- Tablets and phones ---------- */
+
+@media (max-width: 900px) {
+  .sidebar,
+  .main-area .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(280px, 85vw);
+    height: 100vh;
+    padding: 24px 18px;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: none;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 0 0 40px rgb(0 0 0 / 35%);
+  }
+
+  .sidebar .menu-label {
+    display: block;
+  }
+
+  .sidebar .navigation,
+  .sidebar .sidebar-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    overflow: visible;
+  }
+
+  .sidebar .nav-item {
+    width: 100%;
+    padding: 12px 14px;
+  }
+
+  .sidebar .sidebar-bottom {
+    display: flex;
+    margin-top: auto;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgb(15 23 42 / 45%);
+  }
+
+  .main-area,
+  .main-content {
+    margin-left: 0;
+  }
+
+  .menu-toggle {
+    display: grid;
+    place-items: center;
+  }
+
+  .main-area .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    min-height: 0;
+    gap: 12px;
+    padding: 14px 18px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid,
+  .admin-two-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .page-content {
+    padding: 22px 18px;
+  }
+}
+
+/* ---------- Phones ---------- */
+
+@media (max-width: 600px) {
+  .topbar h1,
+  .topbar h2 {
+    font-size: 19px;
+  }
+
+  .breadcrumb {
+    font-size: 11px;
+  }
+
+  .currency-label,
+  .topbar-right .user-avatar {
+    display: none;
+  }
+
+  .topbar-signout {
+    padding: 7px 11px;
+  }
+
+  .page-content {
+    padding: 16px 12px;
+  }
+
+  .summary-grid,
+  .expense-form,
+  .expense-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-form {
+    padding: 16px;
+  }
+
+  .summary-card,
+  .content-card,
+  .content-panel {
+    padding: 16px;
+  }
+
+  .welcome-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .welcome-section h1 {
+    font-size: 24px;
+  }
+
+  .welcome-section > button,
+  .welcome-section > .primary-button,
+  .welcome-section .expense-form-actions {
+    width: 100%;
+  }
+
+  .expense-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .expense-item-actions {
+    width: 100%;
+  }
+
+  .expense-item-actions > * {
+    flex: 1;
+    text-align: center;
+  }
+
+  .expense-form-actions > button,
+  .expense-form-actions > a {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .recent-expense-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+/* Plain buttons in page headers (e.g. Export CSV) */
+.welcome-section > button {
+  padding: 10px 16px;
+  border: 1px solid #dfe4ec;
+  border-radius: 8px;
+  background: #fff;
+  color: #14233f;
+  font-weight: 600;
+}

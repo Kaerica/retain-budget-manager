@@ -10,7 +10,8 @@ function Budgets() {
     (state: RootState) => state.expenses.expenses
   );
 
-  const [amount, setAmount] = useState("300000");
+  // Starts empty: each user sets their own budget (300000 is only shown as an example).
+  const [amount, setAmount] = useState("");
   const [savedAmount, setSavedAmount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -127,7 +128,7 @@ function Budgets() {
       style={{
         maxWidth: "1100px",
         margin: "0 auto",
-        padding: "32px 24px",
+        padding: "clamp(16px, 4vw, 32px) clamp(4px, 3vw, 24px)",
         color: "#1e293b",
         background: "#f8fafc",
         minHeight: "100vh",
@@ -194,9 +195,11 @@ function Budgets() {
       >
         <div style={cardStyle}>
           <p style={{ color: "#64748b", marginTop: 0 }}>Monthly budget</p>
-          <h2>{formatCurrency(budgetAmount)}</h2>
+          <h2>{budgetAmount > 0 ? formatCurrency(budgetAmount) : "Not set"}</h2>
           <p style={{ color: "#64748b", marginBottom: 0 }}>
-            Your planned spending limit
+            {budgetAmount > 0
+              ? "Your planned spending limit"
+              : "Enter your budget below to start tracking"}
           </p>
         </div>
 
@@ -247,6 +250,8 @@ function Budgets() {
             type="number"
             min="1"
             step="1"
+            placeholder="e.g. 300000"
+            aria-describedby="budget-example"
             value={amount}
             onChange={(event) => {
               setAmount(event.target.value);
@@ -261,9 +266,33 @@ function Budgets() {
               border: "1px solid #cbd5e1",
               borderRadius: "8px",
               fontSize: "16px",
-              marginBottom: "16px",
+              marginBottom: "8px",
             }}
           />
+
+          <p
+            id="budget-example"
+            style={{
+              margin: "0 0 16px",
+              color: "#64748b",
+              fontSize: "13px",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                padding: "2px 8px",
+                marginRight: "6px",
+                borderRadius: "999px",
+                background: "#fef3c7",
+                color: "#92400e",
+                fontWeight: 700,
+              }}
+            >
+              Example
+            </span>
+            {formatCurrency(300000)} — type your own amount for {monthName}.
+          </p>
 
           <div>
             <button

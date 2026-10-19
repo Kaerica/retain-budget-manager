@@ -38,6 +38,7 @@ import CategoryManager from "./components/CategoryManager";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import "./styles/additions.css";
+import "./styles/responsive.css";
 import { useAuth } from "./context/AuthContext";
 import { formatCurrency, getSavedCurrency } from "./utils/currency";
 
@@ -94,6 +95,14 @@ function ProtectedLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
+
+  // Mobile menu (the sidebar slides in on small screens).
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the mobile menu whenever the page changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   // The active page comes from the URL (e.g. /expenses -> "Expenses").
   const activePage = getPageFromPath(location.pathname);
@@ -356,7 +365,18 @@ function ProtectedLayout() {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
+      {menuOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        id="app-sidebar"
+        className={`sidebar ${menuOpen ? "open" : ""}`}
+      >
         <div className="brand">
           <div className="brand-icon">R</div>
           <div>
@@ -417,7 +437,18 @@ function ProtectedLayout() {
 
       <main className="main-area">
         <header className="topbar">
-          <div>
+          <button
+            type="button"
+            className="menu-toggle"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            aria-controls="app-sidebar"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? "✕" : "☰"}
+          </button>
+
+          <div className="topbar-title">
             <p className="breadcrumb">
               {isAdmin ? "Admin Panel" : "My Workspace"} /{" "}
               {activePage === "Admin" ? "Admin Dashboard" : activePage}
@@ -432,6 +463,13 @@ function ProtectedLayout() {
             <div className="user-avatar">
               {user?.name?.charAt(0).toUpperCase() || "U"}
             </div>
+            <button
+              type="button"
+              className="topbar-signout"
+              onClick={handleSignout}
+            >
+              Sign out
+            </button>
           </div>
         </header>
 
