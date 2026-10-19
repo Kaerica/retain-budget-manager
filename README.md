@@ -6,8 +6,8 @@ Retain is a full-stack web app for recording personal expenses, setting a monthl
 
 | | URL |
 |---|---|
-| **Frontend (app)** | https://YOUR-FRONTEND-URL.vercel.app |
-| **Backend (API)** | https://YOUR-BACKEND-URL.onrender.com/api/ |
+| **Frontend (app)** | https://retain-budget-manager.vercel.app |
+| **Backend (API)** | https://retain-backend-e98e.onrender.com/api/ |
 
 > The backend runs on a free hosting plan, so the first request after a period of inactivity can take up to a minute while the server wakes up.
 
@@ -176,7 +176,7 @@ npm run dev                       # http://localhost:5173
 
 **Frontend on Vercel**
 1. Import the repository and set Root Directory to `frontend` (framework: Vite).
-2. Add `VITE_API_URL=https://YOUR-BACKEND-URL.onrender.com/api/`.
+2. Add `VITE_API_URL=https://retain-backend-e98e.onrender.com/api/`.
 3. Deploy. `vercel.json` makes page refreshes on routes like `/expenses/5` work.
 
 ---

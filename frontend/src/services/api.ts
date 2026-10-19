@@ -3,14 +3,23 @@ import axios from "axios";
 
 // The API address comes from VITE_API_URL when deployed
 // (e.g. https://retain-api.onrender.com/api/). Locally it falls back to Django's dev server.
-const API_URL: string =
+const RAW_API_URL: string =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/";
+
+// Accept the URL with or without "/api" at the end
+// (e.g. https://retain-api.onrender.com or https://retain-api.onrender.com/api/).
+function normalizeApiUrl(url: string): string {
+  const trimmed = url.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/api") ? `${trimmed}/` : `${trimmed}/api/`;
+}
+
+const API_URL = normalizeApiUrl(RAW_API_URL);
 
 // Fired when the API rejects the saved token so AuthContext can sign the user out.
 export const UNAUTHORIZED_EVENT = "retain:unauthorized";
 
 const api = axios.create({
-  baseURL: API_URL.endsWith("/") ? API_URL : `${API_URL}/`,
+  baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
